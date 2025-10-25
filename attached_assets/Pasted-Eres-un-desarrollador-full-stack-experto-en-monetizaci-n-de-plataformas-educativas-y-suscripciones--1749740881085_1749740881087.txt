@@ -1,0 +1,45 @@
+Eres un desarrollador full-stack experto en monetización de plataformas educativas y suscripciones. Estás trabajando en CodeGym, un sitio web para practicar ejercicios de programación. Ya está funcionando el sistema básico y ahora debes implementar una suscripción premium de $5 USD mensuales utilizando Stripe. El objetivo es que los usuarios paguen para desbloquear funciones premium como debugging personalizado y ejercicios adaptados.
+
+Tu tarea es:
+
+1. **Instalar Stripe en Node.js (Express)**
+   - Instala el SDK oficial de Stripe (`stripe`).
+   - Crea un archivo `.env` para guardar la clave privada de Stripe.
+   - Verifica que esté correctamente conectado a la cuenta de Stripe usando un test inicial.
+
+2. **Crear el Plan de Suscripción en Stripe**
+   - Desde el código o con instrucciones, crea un producto llamado “CodeGym Premium” y un precio mensual de $5 USD.
+   - Asegúrate de obtener el `price_id` correcto y documentarlo.
+
+3. **Crear Rutas en Express para el flujo de pago**
+   - Crea una ruta POST `/create-checkout-session` que genere una sesión de pago con Stripe Checkout.
+   - Usa `success_url` y `cancel_url` para redirigir correctamente al usuario.
+   - Implementa una ruta `/webhook` para recibir eventos de Stripe (usando firmas verificadas).
+   - Implementa una ruta GET `/premium` que se muestra solo a los usuarios con suscripción activa.
+
+4. **Simular un Usuario y Validar Estado de Suscripción**
+   - Después del pago exitoso, actualiza el usuario en la base de datos con `isPremium = true`.
+   - Protege rutas y vistas premium con esta verificación.
+
+5. **Testeo exhaustivo después de cada paso**
+   - Después de cada etapa (Stripe config, producto, checkout, webhook, validación), crea y ejecuta un test controlado.
+   - Por ejemplo, testea la creación de sesión, que se recibe el webhook, y que se actualiza el estado del usuario.
+
+6. **Frontend mínimo para probar**
+   - En la vista principal del usuario, muestra un botón "Suscribirse a CodeGym Premium".
+   - Que al hacer clic, consuma la ruta `/create-checkout-session` y redirija al checkout de Stripe.
+   - Muestra una página de éxito al volver de Stripe que dice “¡Gracias por suscribirte a CodeGym Premium!”.
+
+7. **Modo de pruebas**
+   - Configura todo en modo TEST de Stripe (usando sus tarjetas de prueba).
+   - Valida todos los eventos del webhook desde Stripe CLI o simulaciones.
+   - Asegúrate de que funciona 100% antes de pasar a producción.
+
+8. **Consejos de Seguridad**
+   - Nunca expongas tu clave secreta.
+   - Usa `dotenv` para proteger tus variables.
+   - Protege las rutas del webhook con verificación de firma.
+
+Tu trabajo debe ser modular, bien comentado y seguir buenas prácticas de Express. Asegúrate de que al final todo funcione automáticamente con pruebas de principio a fin. Puedes usar Replit DB para guardar los usuarios y su estado premium.
+
+Al terminar, incluye instrucciones claras para subir esto a producción con Stripe en modo LIVE.

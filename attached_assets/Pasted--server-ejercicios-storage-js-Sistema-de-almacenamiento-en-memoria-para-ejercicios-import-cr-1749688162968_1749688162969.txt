@@ -1,0 +1,245 @@
+// server/ejercicios-storage.js
+// Sistema de almacenamiento en memoria para ejercicios
+
+import { crearEjercicio, validarEjercicio, LENGUAJES_DISPONIBLES } from './ejercicios-schema.js';
+
+class EjerciciosStorage {
+  constructor() {
+    this.ejercicios = new Map(); // key: `${lenguaje}:${nombre}`
+    this.repositorios = new Map();
+    this.logs = [];
+    this.stats = {
+      totalExercises: 0,
+      totalLanguages: 0,
+      totalRepositories: 0,
+      recentDownloads: 0
+    };
+    
+    // Inicializar repositorios por defecto
+    this.inicializarRepositorios();
+  }
+
+  inicializarRepositorios() {
+    const reposDefault = [
+      {
+        id: 1,
+        name: 'Exercism Python',
+        url: 'https://github.com/exercism/python',
+        branch: 'main',
+        path: 'exercises/practice',
+        active: true
+      },
+      {
+        id: 2,
+        name: 'Exercism JavaScript', 
+        url: 'https://github.com/exercism/javascript',
+        branch: 'main',
+        path: 'exercises/practice',
+        active: true
+      },
+      {
+        id: 3,
+        name: 'MDN Learning Area',
+        url: 'https://github.com/mdn/learning-area',
+        branch: 'main', 
+        path: 'html',
+        active: false
+      }
+    ];
+
+    reposDefault.forEach(repo => {
+      this.repositorios.set(repo.id, {
+        ...repo,
+        created_at: new Date().toISOString(),
+        last_sync: null
+      });
+    });
+  }
+
+  // Métodos para ejercicios
+  getExerciseKey(lenguaje, nombre) {
+    return `${lenguaje}:${nombre}`;
+  }
+
+  async getEjercicio(lenguaje, nombre) {
+    const key = this.getExerciseKey(lenguaje, nombre);
+    return this.ejercicios.get(key) || null;
+  }
+
+  async getAllEjercicios() {
+    return Array.from(this.ejercicios.values());
+  }
+
+  async getEjerciciosPorLenguaje(lenguaje) {
+    return Array.from(this.ejercicios.values()).filter(ej => ej.lenguaje === lenguaje);
+  }
+
+  async crearEjercicio(datosEjercicio) {
+    validarEjercicio(datosEjercicio);
+    
+    const ejercicio = crearEjercicio({
+      ...datosEjercicio,
+      id: this.ejercicios.size + 1
+    });
+
+    const key = this.getExerciseKey(ejercicio.lenguaje, ejercicio.nombre);
+    this.ejercicios.set(key, ejercicio);
+    
+    this.actualizarStats();
+    return ejercicio;
+  }
+
+  async actualizarEjercicio(lenguaje, nombre, datosActualizacion) {
+    const key = this.getExerciseKey(lenguaje, nombre);
+    const ejercicioExistente = this.ejercicios.get(key);
+    
+    if (!ejercicioExistente) {
+      throw new Error('Ejercicio no encontrado');
+    }
+
+    const ejercicioActualizado = {
+      ...ejercicioExistente,
+      ...datosActualizacion,
+      fecha_actualizacion: new Date().toISOString()
+    };
+
+    this.ejercicios.set(key, ejercicioActualizado);
+    return ejercicioActualizado;
+  }
+
+  async eliminarEjercicio(lenguaje, nombre) {
+    const key = this.getExerciseKey(lenguaje, nombre);
+    const eliminado = this.ejercicios.delete(key);
+    
+    if (eliminado) {
+      this.actualizarStats();
+    }
+    
+    return eliminado;
+  }
+
+  // Métodos para repositorios
+  async getAllRepositorios() {
+    return Array.from(this.repositorios.values());
+  }
+
+  async getRepositorio(id) {
+    return this.repositorios.get(id) || null;
+  }
+
+  async crearRepositorio(datosRepo) {
+    const id = this.repositorios.size + 1;
+    const repositorio = {
+      id,
+      ...datosRepo,
+      created_at: new Date().toISOString(),
+      last_sync: null
+    };
+    
+    this.repositorios.set(id, repositorio);
+    this.actualizarStats();
+    return repositorio;
+  }
+
+  async eliminarRepositorio(id) {
+    const eliminado = this.repositorios.delete(id);
+    
+    if (eliminado) {
+      this.actualizarStats();
+    }
+    
+    return eliminado;
+  }
+
+  // Métodos para logs
+  async crearLog(datosLog) {
+    const log = {
+      id: this.logs.length + 1,
+      timestamp: new Date().toISOString(),
+      ...datosLog
+    };
+    
+    this.logs.push(log);
+    
+    // Mantener solo los últimos 100 logs
+    if (this.logs.length > 100) {
+      this.logs = this.logs.slice(-100);
+    }
+    
+    return log;
+  }
+
+  async getLogsRecientes(limit = 50) {
+    return this.logs
+      .slice(-limit)
+      .reverse(); // Más recientes primero
+  }
+
+  // Métodos para estadísticas
+  actualizarStats() {
+    const ejercicios = Array.from(this.ejercicios.values());
+    const lenguajesUnicos = new Set(ejercicios.map(ej => ej.lenguaje));
+    
+    this.stats = {
+      totalExercises: ejercicios.length,
+      totalLanguages: lenguajesUnicos.size,
+      totalRepositories: this.repositorios.size,
+      recentDownloads: this.logs.filter(log => 
+        log.method === 'GET' && 
+        log.path.includes('/api/ejercicio/') &&
+        Date.now() - new Date(log.timestamp).getTime() < 24 * 60 * 60 * 1000 // últimas 24h
+      ).length
+    };
+  }
+
+  async getStats() {
+    this.actualizarStats();
+    return this.stats;
+  }
+
+  // Métodos de búsqueda avanzada
+  async buscarEjercicios(termino) {
+    const terminoLower = termino.toLowerCase();
+    return Array.from(this.ejercicios.values()).filter(ej => 
+      ej.nombre.toLowerCase().includes(terminoLower) ||
+      ej.titulo.toLowerCase().includes(terminoLower) ||
+      ej.contenido_md.toLowerCase().includes(terminoLower) ||
+      ej.lenguaje.toLowerCase().includes(terminoLower)
+    );
+  }
+
+  async getEjerciciosPorNivel(nivel) {
+    return Array.from(this.ejercicios.values()).filter(ej => {
+      try {
+        const secciones = JSON.parse(ej.secciones);
+        return secciones.nivel_dificultad === nivel;
+      } catch {
+        return ej.titulo.toLowerCase().includes(`[${nivel.toUpperCase()}]`);
+      }
+    });
+  }
+
+  async getEjerciciosAleatorios(cantidad = 5, lenguaje = null) {
+    let ejercicios = lenguaje 
+      ? await this.getEjerciciosPorLenguaje(lenguaje)
+      : await this.getAllEjercicios();
+    
+    // Mezclar array
+    for (let i = ejercicios.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ejercicios[i], ejercicios[j]] = [ejercicios[j], ejercicios[i]];
+    }
+    
+    return ejercicios.slice(0, cantidad);
+  }
+
+  // Método para limpiar cache
+  limpiarCache() {
+    this.ejercicios.clear();
+    this.logs = [];
+    this.actualizarStats();
+  }
+}
+
+// Instancia única
+export const ejerciciosStorage = new EjerciciosStorage();

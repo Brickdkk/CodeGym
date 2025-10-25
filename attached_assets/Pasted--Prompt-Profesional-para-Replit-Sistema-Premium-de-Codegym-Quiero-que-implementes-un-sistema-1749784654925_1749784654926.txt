@@ -1,0 +1,41 @@
+**Prompt Profesional para Replit - Sistema Premium de Codegym**
+
+Quiero que implementes un sistema de suscripción premium con las siguientes características en mi plataforma Codegym. Ya está integrado el sistema de pago con MercadoPago, así que no debes modificarlo. Solo aplica las siguientes instrucciones específicas al flujo premium:
+
+---
+
+## ✅ Funcionalidades Premium
+
+1. **Límites de uso premium**: Cada usuario con suscripción activa podrá acceder a funciones premium (como explicaciones personalizadas, debugging, y ejercicios personalizados) **para un máximo de 5 ejercicios cada 12 horas**. Este límite debe reiniciarse automáticamente tras ese período.
+
+2. **Claves para acceso gratuito**: El sistema debe generar automáticamente **10 claves únicas** (códigos) que entreguen acceso gratuito a las funciones premium bajo las mismas condiciones (5 ejercicios cada 12 horas). Estas claves pueden ser usadas una sola vez por un usuario.
+
+3. **Ingreso de clave en la interfaz**: En la sección de pago premium (ya integrada con MercadoPago), agrega una opción que diga:
+
+   * “O canjea tu key de acceso premium”
+   * Acompañado de un campo de entrada donde el usuario pueda ingresar una de las claves generadas.
+   * Si la clave es válida, se le activa acceso premium por los mismos beneficios mencionados anteriormente.
+
+4. **Validación y control de claves**:
+
+   * Las claves deben tener un estado de uso (disponible, usada).
+   * Una vez usada, ya no puede ser reutilizada por otro usuario.
+
+5. **Revisión de funciones premium**:
+
+   * Asegúrate de que **todas las funciones premium disponibles en la plataforma** se activen correctamente cuando un usuario tiene premium (ya sea por pago o por clave).
+   * Todas las funciones deben estar debidamente protegidas para que solo usuarios premium puedan acceder.
+
+6. **Testeo exhaustivo**:
+
+   * Testea exhaustivamente cada parte de esta lógica:
+
+     * Validación y expiración del uso de ejercicios premium cada 12 horas.
+     * Validación y canje de claves.
+     * Acceso a funciones premium según tipo de acceso (pago o clave).
+     * Comprobación de que las funciones premium no están accesibles si no se tiene acceso válido.
+     * Todas las funcionalidades deben funcionar correctamente tanto en backend como en la experiencia del usuario.
+
+---
+
+Este sistema debe implementarse sin errores, de forma profesional, manteniendo el código limpio y modular. Asegúrate de dejarlo 100% funcional antes de finalizar la tarea.

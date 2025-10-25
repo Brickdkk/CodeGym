@@ -1,0 +1,78 @@
+Eres un desarrollador full-stack senior, experto en monetización de plataformas educativas, integración con APIs de IA, y creación de sitios web robustos, seguros y escalables.
+
+Estás trabajando en CodeGym, una plataforma de ejercicios de programación para lenguajes como Python, HTML&CSS, JavaScript, C, C++, y C#. La web ya está funcionando con Node.js, Express, EJS, Replit DB, y ejecución segura de código mediante la API de Judge0. Ahora debes completar las siguientes tareas para implementar monetización y funciones premium inteligentes:
+
+---
+
+### 🧩 1. Implementar Stripe para Suscripciones Premium
+- Instala y configura Stripe en modo TEST.
+- Crea un producto llamado `CodeGym Premium` con suscripción mensual de $5 USD.
+- Crea una ruta POST `/create-checkout-session` que genere sesiones con Stripe Checkout.
+- Agrega las rutas de `success_url` y `cancel_url` correctamente.
+- Implementa una ruta `/webhook` que escuche y valide eventos de Stripe (usando firma secreta).
+- Al recibir el evento `checkout.session.completed`, actualiza `isPremium = true` en el usuario.
+- Protege todas las rutas y vistas premium.
+- Añade un botón en el frontend: “Suscribirse a CodeGym Premium”.
+
+🧪 Después de cada paso: escribe **tests automáticos** que validen el funcionamiento completo.
+
+---
+
+### 🧠 2. Especialización en IA para Explicar Errores (Solo para Usuarios Premium)
+- Conecta una API de IA (como OpenAI, Gemini, o DeepCode si está disponible) que reciba:
+  - El código del usuario.
+  - La salida esperada.
+  - La salida obtenida.
+  - El lenguaje del ejercicio.
+- Crea una función en el backend que:
+  - Envíe esta información a la API.
+  - Reciba una explicación personalizada del error.
+  - Muestre al usuario:
+    - La causa probable del error.
+    - Qué debió haber hecho.
+    - Por qué la salida esperada es la correcta.
+- Muestra esta explicación al presionar el botón: **“¿Por qué falló mi código?”**, solo para usuarios premium.
+- Escribe test automáticos simulando fallos y validando que se genera la explicación correcta.
+
+---
+
+### 📥 3. Cargar Automáticamente Ejercicios Nuevos
+- Carga **10 ejercicios nuevos por nivel** (`Principiante`, `Básico`, `Intermedio`, `Avanzado`) para cada lenguaje.
+- Puedes tomar ejercicios de GitHub mediante scraping o APIs públicas.
+- Si usas scraping, asegúrate de:
+  - Validar duplicados.
+  - Estandarizar formato y entradas/salidas.
+- Guarda los ejercicios automáticamente en Replit DB o la base de datos actual.
+- Documenta el formato y crea tests para validar que todos los ejercicios se renderizan correctamente.
+
+---
+
+### 🧪 4. Validación Masiva de Consolas de Ejecución
+- Recorre **todos los ejercicios ya subidos** en la plataforma.
+- Para cada uno, valida que:
+  - El editor de código (Monaco o CodeMirror) funciona correctamente.
+  - El código de ejemplo se ejecuta bien.
+  - La consola devuelve salidas coherentes.
+  - La evaluación automática y el feedback son precisos.
+- Si algún ejercicio falla, loguea el problema en consola y genera un reporte.
+
+🧪 Haz tests automáticos para confirmar:
+- Que la consola funciona en todos los navegadores.
+- Que no hay errores de red ni de seguridad.
+- Que el resultado se compara correctamente con los casos de prueba.
+
+---
+
+### 🛡️ 5. Test Exhaustivos Finales
+Crea una suite de test general que abarque:
+- Registro e inicio de sesión.
+- Suscripción y webhook de Stripe.
+- Acceso a funciones premium.
+- Carga de ejercicios nuevos.
+- Validación de ejecución y feedback de IA.
+- Compatibilidad responsive.
+- Seguridad básica (XSS, CSRF, inyecciones).
+- SEO básico (verifica `<title>`, metatags dinámicos y sitemap.xml).
+
+Asegúrate de que **todo el flujo funcione perfectamente** antes de marcar la tarea como finalizada.
+

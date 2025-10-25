@@ -1,0 +1,57 @@
+**Objetivo del Proyecto:** Crear una aplicación web simple que integre la API de Google Gemini para procesar texto, utilizando un backend seguro y un frontend básico.
+
+**Contexto del Usuario:** Soy un desarrollador web freelancer y estudiante de Ingeniería Informática en Inteligencia Artificial. Necesito una solución robusta y segura para integrar un modelo de IA en mis proyectos web. El hosting final será en HostGator, pero quiero usar Replit para el desarrollo y despliegue inicial por su facilidad.
+
+---
+
+**Instrucciones Paso a Paso para Replit:**
+
+1.  **Configuración Inicial del Proyecto (Python Flask):**
+    * Crea un nuevo proyecto en Replit.
+    * Selecciona la plantilla de **Python con Flask**.
+    * Asegúrate de que la estructura inicial incluye `main.py` y `templates/index.html`.
+
+2.  **Manejo Seguro de la API Key (Variables de Entorno):**
+    * Instruye al usuario a ir a la sección "Secrets" (o "Environment Variables") en Replit.
+    * Pídele que añada una nueva variable con el nombre `GOOGLE_GEMINI_API_KEY` y que pegue el valor de su clave de API de Google Gemini allí.
+    * Explica claramente que **el código accederá a esta variable de entorno y que esto es crucial para la seguridad**, para evitar exponer la clave en el código fuente.
+
+3.  **Código del Backend (`main.py`):**
+    * Escribe el código completo para un servidor Flask (`main.py`).
+    * Debe tener un endpoint `GET /` que sirva el archivo `index.html`.
+    * Debe tener un endpoint `POST /api/generar-texto-gemini` que haga lo siguiente:
+        * Reciba un `prompt` de texto en formato JSON (`request.json.get('prompt')`).
+        * Obtenga la `GOOGLE_GEMINI_API_KEY` de las variables de entorno de Replit (`os.environ.get`).
+        * Realice una solicitud HTTP `POST` a la API de Google Gemini (`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent`).
+        * Utilice el modelo `gemini-pro`.
+        * Maneje posibles errores de la API de Gemini o de la red.
+        * Extraiga el texto generado de la respuesta de Gemini.
+        * Devuelva el texto generado (o un mensaje de error) en formato JSON al frontend.
+    * Asegúrate de importar las librerías necesarias (`Flask`, `requests`, `os`).
+    * Incluye un manejo robusto de errores y logs básicos.
+
+4.  **Código del Frontend (`templates/index.html` y `static/script.js`):**
+    * Crea un archivo `templates/index.html`. Este será la página principal.
+    * Dentro de `index.html`, incluye un `textarea` para que el usuario escriba el prompt, un botón para enviar la petición, y un `div` para mostrar la respuesta de la IA.
+    * Crea un directorio `static` y dentro de él un archivo `script.js`.
+    * `index.html` debe enlazar a `static/script.js`.
+    * El `script.js` debe:
+        * Escuchar el evento `click` del botón.
+        * Obtener el texto del `textarea`.
+        * Realizar una solicitud `fetch` (POST) asíncrona a `/api/generar-texto-gemini` en el backend.
+        * Manejar los estados de carga (mostrar/ocultar un mensaje de "Cargando...").
+        * Mostrar la respuesta de la IA en el `div` correspondiente.
+        * Manejar y mostrar errores amigables al usuario en el frontend.
+
+5.  **Instrucciones para el Usuario (Archivo `README.md` o Comentarios en el Código):**
+    * Proporciona instrucciones claras al usuario sobre:
+        * Cómo obtener la `GOOGLE_GEMINI_API_KEY` de Google AI Studio.
+        * Dónde añadir la `GOOGLE_GEMINI_API_KEY` en la sección "Secrets" de Replit.
+        * Cómo probar la aplicación una vez que esté en marcha (el botón "Run" en Replit).
+        * Qué hacer si tiene problemas (revisar logs de Replit, revisar `Secrets`).
+
+---
+
+**Confirmación de Replit:**
+
+Una vez que generes el proyecto, por favor, muéstrame el contenido de `main.py`, `templates/index.html`, y `static/script.js`, y explícame cómo acceder a las variables de entorno en Replit y cómo probar la aplicación.

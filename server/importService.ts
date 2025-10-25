@@ -1,0 +1,402 @@
+import { storage } from "./storage.js";
+import { insertExerciseSchema, insertLanguageSchema } from "../shared/schema.js";
+import type { InsertExercise, InsertLanguage } from "../shared/schema.js";
+
+export interface GitHubExercise {
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  language: string;
+  starterCode?: string;
+  solution?: string;
+  testCases?: Array<{
+    input: string;
+    output: string;
+  }>;
+  tags?: string[];
+  timeLimit?: number;
+  memoryLimit?: number;
+}
+
+export interface ImportResult {
+  success: boolean;
+  exercisesImported: number;
+  languagesCreated: number;
+  errors: string[];
+  details: {
+    exercises: Array<{ title: string; slug: string; status: 'created' | 'updated' | 'error' }>;
+    languages: Array<{ name: string; slug: string; status: 'created' | 'existing' }>;
+  };
+}
+
+export class ExerciseImportService {
+  
+  /**
+   * Convierte un título en un slug único
+   */
+  private generateSlug(title: string): string {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+  }
+
+  /**
+   * Asegura que el slug sea único añadiendo un número si es necesario
+   */
+  private async ensureUniqueSlug(baseSlug: string, existingSlugs: string[]): Promise<string> {
+    let slug = baseSlug;
+    let counter = 1;
+    
+    while (existingSlugs.includes(slug)) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+    
+    return slug;
+  }
+
+  /**
+   * Crea o actualiza un lenguaje de programación
+   */
+  private async ensureLanguageExists(languageName: string): Promise<string> {
+    const normalizedName = languageName.toLowerCase();
+    const slug = this.generateSlug(normalizedName);
+    
+    // Verificar si el lenguaje ya existe
+    const existingLanguage = await storage.getLanguageBySlug(slug);
+    if (existingLanguage) {
+      return slug;
+    }
+
+    // Mapeo de extensiones de archivo y configuraciones por lenguaje
+    const languageConfig = this.getLanguageConfig(normalizedName);
+    
+    const newLanguage: InsertLanguage = {
+      name: languageConfig.name,
+      slug: slug,
+      description: languageConfig.description,
+      fileExtension: languageConfig.fileExtension,
+      syntaxHighlighting: languageConfig.syntaxHighlighting,
+      defaultTemplate: languageConfig.defaultTemplate,
+      isActive: true
+    };
+
+    await storage.createLanguage(newLanguage);
+    return slug;
+  }
+
+  /**
+   * Configuración específica por lenguaje
+   */
+  private getLanguageConfig(languageName: string) {
+    const configs: Record<string, any> = {
+      'python': {
+        name: 'Python',
+        description: 'Lenguaje interpretado de alto nivel, ideal para principiantes',
+        fileExtension: '.py',
+        syntaxHighlighting: 'python',
+        defaultTemplate: '# Escribe tu código aquí\ndef solution():\n    pass'
+      },
+      'javascript': {
+        name: 'JavaScript',
+        description: 'Lenguaje de programación versátil para web y backend',
+        fileExtension: '.js',
+        syntaxHighlighting: 'javascript',
+        defaultTemplate: '// Escribe tu código aquí\nfunction solution() {\n    // Tu código aquí\n}'
+      },
+      'java': {
+        name: 'Java',
+        description: 'Lenguaje orientado a objetos, robusto y multiplataforma',
+        fileExtension: '.java',
+        syntaxHighlighting: 'java',
+        defaultTemplate: 'public class Solution {\n    public static void main(String[] args) {\n        // Tu código aquí\n    }\n}'
+      },
+      'cpp': {
+        name: 'C++',
+        description: 'Lenguaje de programación de sistemas de alto rendimiento',
+        fileExtension: '.cpp',
+        syntaxHighlighting: 'cpp',
+        defaultTemplate: '#include <iostream>\nusing namespace std;\n\nint main() {\n    // Tu código aquí\n    return 0;\n}'
+      },
+      'c': {
+        name: 'C',
+        description: 'Lenguaje de programación de sistemas fundamental',
+        fileExtension: '.c',
+        syntaxHighlighting: 'c',
+        defaultTemplate: '#include <stdio.h>\n\nint main() {\n    // Tu código aquí\n    return 0;\n}'
+      }
+    };
+
+    return configs[languageName] || {
+      name: languageName.charAt(0).toUpperCase() + languageName.slice(1),
+      description: `Ejercicios de programación en ${languageName}`,
+      fileExtension: '.txt',
+      syntaxHighlighting: 'text',
+      defaultTemplate: '// Código aquí'
+    };
+  }
+
+  /**
+   * Valida que un ejercicio tenga los campos mínimos requeridos
+   */
+  private validateExercise(exercise: GitHubExercise): string[] {
+    const errors: string[] = [];
+    
+    if (!exercise.title?.trim()) {
+      errors.push('El título es obligatorio');
+    }
+    
+    if (!exercise.description?.trim()) {
+      errors.push('La descripción es obligatoria');
+    }
+    
+    if (!exercise.language?.trim()) {
+      errors.push('El lenguaje es obligatorio');
+    }
+    
+    if (!['beginner', 'intermediate', 'advanced', 'expert'].includes(exercise.difficulty)) {
+      errors.push('La dificultad debe ser: beginner, intermediate, advanced o expert');
+    }
+    
+    return errors;
+  }
+
+  /**
+   * Importa una lista de ejercicios desde datos parseados de GitHub
+   */
+  public async importExercises(exercises: GitHubExercise[]): Promise<ImportResult> {
+    const result: ImportResult = {
+      success: false,
+      exercisesImported: 0,
+      languagesCreated: 0,
+      errors: [],
+      details: {
+        exercises: [],
+        languages: []
+      }
+    };
+
+    if (!exercises || exercises.length === 0) {
+      result.errors.push('No se proporcionaron ejercicios para importar');
+      return result;
+    }
+
+    try {
+      // Procesar lenguajes únicos
+      const uniqueLanguages = [...new Set(exercises.map(ex => ex.language?.toLowerCase()).filter(Boolean))];
+      const existingLanguages = await storage.getLanguages();
+      const existingLanguageSlugs = existingLanguages.map(lang => lang.slug);
+
+      for (const languageName of uniqueLanguages) {
+        try {
+          const slug = await this.ensureLanguageExists(languageName);
+          const wasExisting = existingLanguageSlugs.includes(slug);
+          
+          result.details.languages.push({
+            name: languageName,
+            slug: slug,
+            status: wasExisting ? 'existing' : 'created'
+          });
+          
+          if (!wasExisting) {
+            result.languagesCreated++;
+          }
+        } catch (error) {
+          result.errors.push(`Error procesando lenguaje ${languageName}: ${error}`);
+        }
+      }
+
+      // Obtener todos los ejercicios existentes para verificar slugs únicos
+      const allExercises = await storage.getAllExercises();
+      const existingSlugs = allExercises.map(ex => ex.slug);
+
+      // Procesar cada ejercicio
+      for (const [index, exercise] of exercises.entries()) {
+        try {
+          // Validar ejercicio
+          const validationErrors = this.validateExercise(exercise);
+          if (validationErrors.length > 0) {
+            const errorMsg = `Ejercicio ${index + 1} (${exercise.title || 'Sin título'}): ${validationErrors.join(', ')}`;
+            result.errors.push(errorMsg);
+            result.details.exercises.push({
+              title: exercise.title || `Ejercicio ${index + 1}`,
+              slug: '',
+              status: 'error'
+            });
+            continue;
+          }
+
+          // Generar slug único
+          const baseSlug = this.generateSlug(exercise.title);
+          const uniqueSlug = await this.ensureUniqueSlug(baseSlug, existingSlugs);
+          existingSlugs.push(uniqueSlug); // Evitar duplicados en el mismo lote
+
+          // Obtener el lenguaje
+          const languageSlug = this.generateSlug(exercise.language.toLowerCase());
+          const language = await storage.getLanguageBySlug(languageSlug);
+          
+          if (!language) {
+            result.errors.push(`Lenguaje no encontrado para el ejercicio: ${exercise.title}`);
+            continue;
+          }
+
+          // Verificar si el ejercicio ya existe
+          const existingExercise = await storage.getExerciseBySlug(uniqueSlug);
+          
+          const exerciseData: InsertExercise = {
+            title: exercise.title.trim(),
+            slug: uniqueSlug,
+            description: exercise.description.trim(),
+            difficulty: exercise.difficulty,
+            languageId: language.id,
+            starterCode: exercise.starterCode || language.defaultTemplate,
+            solution: exercise.solution || null,
+            testCases: exercise.testCases ? JSON.stringify(exercise.testCases) : null,
+            tags: exercise.tags ? JSON.stringify(exercise.tags) : null,
+            timeLimit: exercise.timeLimit || 5000,
+            memoryLimit: exercise.memoryLimit || 128,
+            points: this.calculatePoints(exercise.difficulty),
+            isActive: true
+          };
+
+          // Validar con el schema de Zod
+          const validatedData = insertExerciseSchema.parse(exerciseData);
+          
+          if (existingExercise) {
+            // Actualizar ejercicio existente
+            await storage.updateExercise(existingExercise.id, validatedData);
+            result.details.exercises.push({
+              title: exercise.title,
+              slug: uniqueSlug,
+              status: 'updated'
+            });
+          } else {
+            // Crear nuevo ejercicio
+            await storage.createExercise(validatedData);
+            result.details.exercises.push({
+              title: exercise.title,
+              slug: uniqueSlug,
+              status: 'created'
+            });
+            result.exercisesImported++;
+          }
+
+        } catch (error) {
+          const errorMsg = `Error importando ejercicio "${exercise.title}": ${error}`;
+          result.errors.push(errorMsg);
+          result.details.exercises.push({
+            title: exercise.title || `Ejercicio ${index + 1}`,
+            slug: '',
+            status: 'error'
+          });
+        }
+      }
+
+      result.success = result.errors.length === 0 || result.exercisesImported > 0;
+      
+    } catch (error) {
+      result.errors.push(`Error general en la importación: ${error}`);
+    }
+
+    return result;
+  }
+
+  /**
+   * Calcula los puntos según la dificultad
+   */
+  private calculatePoints(difficulty: string): number {
+    const pointsMap: Record<string, number> = {
+      'beginner': 10,
+      'intermediate': 25,
+      'advanced': 50,
+      'expert': 100
+    };
+    return pointsMap[difficulty] || 10;
+  }
+
+  /**
+   * Método para parsear ejercicios desde archivos Markdown
+   * Este método será llamado por tu herramienta externa de GitHub
+   */
+  public parseMarkdownToExercise(markdownContent: string, filename: string): GitHubExercise | null {
+    try {
+      // Esta es una implementación básica - tu herramienta externa puede ser más sofisticada
+      const lines = markdownContent.split('\n');
+      let title = '';
+      let description = '';
+      let difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert' = 'beginner';
+      let language = '';
+      let starterCode = '';
+      let solution = '';
+      let testCases: Array<{input: string, output: string}> = [];
+
+      // Extraer título del primer header
+      const titleMatch = lines.find(line => line.startsWith('# '));
+      if (titleMatch) {
+        title = titleMatch.replace('# ', '').trim();
+      }
+
+      // Extraer metadata del frontmatter si existe
+      if (lines[0] === '---') {
+        const frontmatterEnd = lines.findIndex((line, index) => index > 0 && line === '---');
+        if (frontmatterEnd !== -1) {
+          const frontmatter = lines.slice(1, frontmatterEnd);
+          for (const line of frontmatter) {
+            if (line.includes('difficulty:')) {
+              const diff = line.split(':')[1]?.trim().toLowerCase();
+              if (['beginner', 'intermediate', 'advanced', 'expert'].includes(diff)) {
+                difficulty = diff as any;
+              }
+            }
+            if (line.includes('language:')) {
+              language = line.split(':')[1]?.trim() || '';
+            }
+          }
+        }
+      }
+
+      // Inferir lenguaje del nombre del archivo si no se especifica
+      if (!language) {
+        const ext = filename.split('.').pop()?.toLowerCase();
+        const extToLang: Record<string, string> = {
+          'py': 'python',
+          'js': 'javascript',
+          'java': 'java',
+          'cpp': 'cpp',
+          'c': 'c',
+          'cs': 'csharp'
+        };
+        language = extToLang[ext || ''] || 'python';
+      }
+
+      // Extraer descripción (todo entre el título y el primer bloque de código)
+      let descStart = lines.findIndex(line => line.startsWith('# ')) + 1;
+      let descEnd = lines.findIndex((line, index) => index > descStart && line.startsWith('```'));
+      if (descEnd === -1) descEnd = lines.length;
+      
+      description = lines.slice(descStart, descEnd)
+        .filter(line => !line.startsWith('#'))
+        .join('\n')
+        .trim();
+
+      return {
+        title: title || filename.replace(/\.[^/.]+$/, ""),
+        description: description || `Ejercicio de programación en ${language}`,
+        difficulty,
+        language,
+        starterCode,
+        solution,
+        testCases
+      };
+
+    } catch (error) {
+      console.error(`Error parsing markdown file ${filename}:`, error);
+      return null;
+    }
+  }
+}
+
+export const importService = new ExerciseImportService();
