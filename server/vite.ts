@@ -7,22 +7,14 @@ import viteConfig from "../vite.config.js";
 import { nanoid } from "nanoid";
 import { fileURLToPath } from "url";
 
+// Re-export log from the lightweight module so existing imports keep working
+export { log } from "./log.js";
+
 // Compatibility helper for __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const viteLogger = createLogger();
-
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
 
 export async function setupVite(app: Express, server: Server) {  const serverOptions = {
     middlewareMode: true,

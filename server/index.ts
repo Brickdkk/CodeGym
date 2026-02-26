@@ -1,5 +1,6 @@
 import { app, initializeApp } from "./app.js";
-import { setupVite, log } from "./vite.js";
+import { setupVite } from "./vite.js";
+import { log } from "./log.js";
 import { createServer } from "http";
 
 (async () => {

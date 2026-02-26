@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
-import { serveStatic, log } from "./vite.js";
+import { log } from "./log.js";
 import { storage } from "./storage.js";
 import helmet from "helmet";
 import cors from "cors";
@@ -267,8 +267,10 @@ export async function initializeApp() {
     });
   });
 
-  // In production, serve static files (in dev, Vite middleware is used instead)
-  if (process.env.NODE_ENV === 'production') {
+  // In production (non-Vercel), serve static files.
+  // On Vercel, static files are served by the CDN — the function only handles /api routes.
+  if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+    const { serveStatic } = await import("./vite.js");
     serveStatic(app);
   }
 }
