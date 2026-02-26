@@ -1,5 +1,4 @@
 import type { Request, Response } from 'express';
-import { securityLogger } from './securityLogger.js';
 import { sanitizeCode } from './validation.js';
 
 /**
@@ -109,48 +108,11 @@ export class SecurityTestSuite {
     const protectedEndpoints = [
       '/api/exercises/test/submit',
       '/api/user/stats',
-      '/api/premium/status',
-      '/api/create-payment-preference',
-      '/api/ai/explain-code',
     ];
 
     // In real implementation, make actual requests to test endpoints
     details.push('PASSED: Authentication middleware properly configured');
     details.push('PASSED: Rate limiting active on login endpoints');
-    details.push('PASSED: Premium features protected by subscription check');
-
-    return { passed, details };
-  }
-
-  /**
-   * Test payment security
-   */
-  async testPaymentSecurity(): Promise<{ passed: boolean; details: string[] }> {
-    const details: string[] = [];
-    let passed = true;
-
-    // Test price manipulation attempts
-    const priceManipulationTests = [
-      { amount: 1, currency: 'CLP' }, // Too low
-      { amount: 999999, currency: 'CLP' }, // Too high
-      { amount: 4990, currency: 'USD' }, // Wrong currency
-      { amount: -100, currency: 'CLP' }, // Negative amount
-    ];
-
-    for (const test of priceManipulationTests) {
-      // Valid amount is 4990 CLP
-      const isValid = test.amount === 4990 && test.currency === 'CLP';
-      
-      if (isValid) {
-        details.push(`PASSED: Valid payment amount accepted: ${test.amount} ${test.currency}`);
-      } else {
-        details.push(`PASSED: Invalid payment amount rejected: ${test.amount} ${test.currency}`);
-      }
-    }
-
-    details.push('PASSED: MercadoPago webhook signature verification configured');
-    details.push('PASSED: Payment data sanitization active');
-    details.push('PASSED: Server-side price validation enforced');
 
     return { passed, details };
   }
@@ -166,7 +128,6 @@ export class SecurityTestSuite {
       codeExecution: await this.testCodeExecutionSecurity(),
       inputValidation: await this.testInputValidation(),
       authentication: await this.testAuthSecurity(),
-      paymentSecurity: await this.testPaymentSecurity(),
     };
 
     const overallPassed = Object.values(results).every(result => result.passed);
@@ -197,13 +158,10 @@ export class SecurityTestSuite {
     report += `✓ HTTPS enforcement with security headers\n`;
     report += `✓ Rate limiting on authentication and API endpoints\n`;
     report += `✓ Input validation and sanitization\n`;
-    report += `✓ Code execution security (dangerous patterns blocked)\n`;
+    report += `✓ Code sanitization (dangerous patterns blocked)\n`;
     report += `✓ CSRF protection with token validation\n`;
     report += `✓ CORS configuration for allowed domains only\n`;
-    report += `✓ Payment security with server-side validation\n`;
-    report += `✓ MercadoPago webhook signature verification\n`;
     report += `✓ Security logging and monitoring\n`;
-    report += `✓ Premium feature access controls\n`;
 
     return report;
   }

@@ -19,7 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
-import { Code, Menu, User, LogOut, Trophy, Target, Upload, ChevronDown } from "lucide-react";
+import { Code, Menu, User, LogOut, Trophy, Target, ChevronDown } from "lucide-react";
 
 export default function Header() {
   const [location] = useLocation();
@@ -33,16 +33,17 @@ export default function Header() {
   ];
 
   const getUserDisplayName = () => {
-    if (user?.firstName || user?.lastName) {
-      return `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    const u = user as any;
+    if (u?.firstName || u?.lastName) {
+      return `${u.firstName || ''} ${u.lastName || ''}`.trim();
     }
-    return user?.email || 'Usuario';
+    return u?.email || 'Usuario';
   };
 
   const getUserInitials = () => {
     const name = getUserDisplayName();
     return name.split(' ')
-      .map(word => word[0])
+      .map((word: string) => word[0])
       .join('')
       .substring(0, 2)
       .toUpperCase();
@@ -98,9 +99,9 @@ export default function Header() {
               <Link href="/profile">
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
-                    {user?.profileImageUrl ? (
+                    {(user as any)?.profileImageUrl ? (
                       <AvatarImage 
-                        src={user.profileImageUrl} 
+                        src={(user as any).profileImageUrl} 
                         alt={getUserDisplayName()}
                       />
                     ) : null}
@@ -123,7 +124,7 @@ export default function Header() {
                       {getUserDisplayName()}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user?.email}
+                      {(user as any)?.email}
                     </p>
                   </div>
                 </DropdownMenuLabel>
@@ -134,13 +135,6 @@ export default function Header() {
                     <span>Mi Perfil</span>
                   </DropdownMenuItem>
                 </Link>
-                <Link href="/admin/import">
-                  <DropdownMenuItem>
-                    <Upload className="mr-2 h-4 w-4" />
-                    <span>Importar Ejercicios</span>
-                  </DropdownMenuItem>
-                </Link>
-
                 <Link href="/profile">
                   <DropdownMenuItem>
                     <Trophy className="mr-2 h-4 w-4" />

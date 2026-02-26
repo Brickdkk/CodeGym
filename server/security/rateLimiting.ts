@@ -1,6 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
 
-// Simple in-memory rate limiting store
+// In-memory rate limiting store
+// NOTE: In serverless (Vercel), each function instance has its own store.
+// Rate limiting is best-effort per instance. For distributed rate limiting,
+// consider Vercel Edge middleware or a Redis-backed store (e.g., Upstash).
 interface RateLimitEntry {
   count: number;
   resetTime: number;

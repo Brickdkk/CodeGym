@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FaGoogle, FaGithub, FaCode } from 'react-icons/fa';
+import { FaGoogle, FaGithub } from 'react-icons/fa';
 
 export function LoginForm() {  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,7 +12,7 @@ export function LoginForm() {  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [, setLocation] = useLocation();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -34,7 +34,7 @@ export function LoginForm() {  const [email, setEmail] = useState('');
       // Inicio de sesión exitoso, redirigir al usuario
       setLocation('/');
     } catch (err) {
-      setError(err.message || 'Error en el inicio de sesión');
+      setError(err instanceof Error ? err.message : 'Error en el inicio de sesión');
     } finally {
       setLoading(false);
     }
@@ -95,7 +95,7 @@ export function LoginForm() {  const [email, setEmail] = useState('');
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <a
             href="/api/auth/google"
             className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
@@ -107,12 +107,6 @@ export function LoginForm() {  const [email, setEmail] = useState('');
             className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             <FaGithub className="text-black" />
-          </a>
-          <a
-            href="/api/login"
-            className="flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <FaCode className="text-blue-600" />
           </a>
         </div>
       </CardContent>

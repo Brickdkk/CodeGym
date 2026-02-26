@@ -37,17 +37,17 @@ export default function RankingPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Fetch languages - now available for guests too
-  const { data: languages = [] } = useQuery({
+  const { data: languages = [] } = useQuery<any[]>({
     queryKey: ["/api/languages"]
   });
 
   // Fetch exercises based on filters - now available for guests too
-  const { data: exercises = [], isLoading: exercisesLoading } = useQuery({
+  const { data: exercises = [], isLoading: exercisesLoading } = useQuery<Exercise[]>({
     queryKey: ["/api/exercises/search", selectedLanguage, selectedDifficulty, searchTerm]
   });
 
   // Fetch rankings for selected exercise - available for guests too
-  const { data: rankings = [], isLoading: rankingsLoading } = useQuery({
+  const { data: rankings = [], isLoading: rankingsLoading } = useQuery<ExerciseRanking[]>({
     queryKey: ["/api/exercises", selectedExercise, "rankings"],
     enabled: !!selectedExercise
   });

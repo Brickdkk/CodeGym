@@ -66,8 +66,3 @@ pids
 *.seed
 *.pid.lock
 .grunt
-
-# RENDER Y DEPLOY
-# =============================================================================
-.render/
-deploy.log

@@ -12,8 +12,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table.
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// Session storage table for express-session with connect-pg-simple.
 export const sessions = pgTable(
   "sessions",
   {
@@ -25,7 +24,6 @@ export const sessions = pgTable(
 );
 
 // User storage table.
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
   email: varchar("email").unique(),
@@ -49,7 +47,9 @@ export const comments = pgTable("comments", {
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_comments_exercise").on(table.exerciseId),
+]);
 
 export const languages = pgTable("languages", {
   id: serial("id").primaryKey(),
@@ -81,7 +81,10 @@ export const exercises = pgTable("exercises", {
   points: integer("points").default(10), // Points awarded for completion
   isActive: boolean("is_active").default(true), // Whether exercise is visible
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_exercises_language_id").on(table.languageId),
+  index("idx_exercises_difficulty").on(table.difficulty),
+]);
 
 export const submissions = pgTable("submissions", {
   id: serial("id").primaryKey(),
@@ -92,7 +95,10 @@ export const submissions = pgTable("submissions", {
   executionTime: integer("execution_time"), // milliseconds
   memoryUsed: integer("memory_used"), // bytes
   submittedAt: timestamp("submitted_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_submissions_user_exercise").on(table.userId, table.exerciseId),
+  index("idx_submissions_exercise_status").on(table.exerciseId, table.status),
+]);
 
 export const userProgress = pgTable("user_progress", {
   id: serial("id").primaryKey(),
@@ -102,7 +108,9 @@ export const userProgress = pgTable("user_progress", {
   bestTime: integer("best_time"), // milliseconds
   attempts: integer("attempts").default(0),
   lastAttempt: timestamp("last_attempt"),
-});
+}, (table) => [
+  index("idx_user_progress_user_exercise").on(table.userId, table.exerciseId),
+]);
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -141,7 +149,9 @@ export const userAchievements = pgTable("user_achievements", {
   userId: varchar("user_id").references(() => users.id).notNull(),
   achievementId: integer("achievement_id").references(() => achievements.id).notNull(),
   unlockedAt: timestamp("unlocked_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_user_achievements_user").on(table.userId),
+]);
 
 export const userStreaks = pgTable("user_streaks", {
   id: serial("id").primaryKey(),
@@ -152,7 +162,9 @@ export const userStreaks = pgTable("user_streaks", {
   totalActiveDays: integer("total_active_days").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_user_streaks_user").on(table.userId),
+]);
 
 export const dailyActivity = pgTable("daily_activity", {
   id: serial("id").primaryKey(),
@@ -163,7 +175,9 @@ export const dailyActivity = pgTable("daily_activity", {
   pointsEarned: integer("points_earned").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_daily_activity_user_date").on(table.userId, table.date),
+]);
 
 export type Achievement = typeof achievements.$inferSelect;
 export type InsertAchievement = typeof achievements.$inferInsert;

@@ -9,7 +9,6 @@ import type { Language, Exercise } from "@shared/schema";
 
 // Import language logos
 import pythonLogo from '@/assets/logo-python.png';
-import csharpLogo from '@/assets/logo-csharp.png';
 import cLogo from '@/assets/logo-c.png';
 import cppLogo from '@/assets/logo-cpp.png';
 import htmlCssLogo from '@/assets/logo-html-css.png';
@@ -20,9 +19,6 @@ const getLanguageLogo = (slug: string): string | undefined => {
   switch (slug.toLowerCase()) {
     case 'python':
       return pythonLogo;
-    case 'csharp':
-    case 'c#':
-      return csharpLogo;
     case 'c':
       return cLogo;
     case 'cpp':

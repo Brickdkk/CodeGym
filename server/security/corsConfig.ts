@@ -6,14 +6,14 @@ import type { CorsOptions } from 'cors';
 export const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);    // Define allowed origins
+    if (!origin) return callback(null, true);
+
+    // Define allowed origins from environment or defaults
     const allowedOrigins = [
-      'https://codegym.cl',
-      'https://www.codegym.cl',
-      'https://codegym-ejerciciosdeprogramacion.onrender.com',
-      process.env.REPLIT_DOMAINS?.split(',').map(domain => `https://${domain}`) || [],
-      ...(process.env.NODE_ENV === 'development' ? ['http://localhost:5000', 'http://127.0.0.1:5000'] : [])
-    ].flat();
+      'https://codegym-kappa.vercel.app',
+      ...(process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || []),
+      ...(process.env.NODE_ENV === 'development' ? ['http://localhost:5000', 'http://localhost:3000', 'http://127.0.0.1:5000'] : [])
+    ];
 
     if (allowedOrigins.includes(origin)) {
       callback(null, true);

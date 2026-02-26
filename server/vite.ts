@@ -72,25 +72,13 @@ export async function setupVite(app: Express, server: Server) {  const serverOpt
 
 export function serveStatic(app: Express) {
   let distPath;
-    if (process.env.NODE_ENV === 'production') {
-    // Intentamos varias ubicaciones posibles donde podrían estar los archivos estáticos
-    
-    // 1. Ubicación relativa al script compilado
+  if (process.env.NODE_ENV === 'production') {
+    // 1. Relative to compiled script (dist/client when running from dist/)
     distPath = path.resolve(__dirname, "../client");
     
-    // 2. Si no existe, probamos con la ubicación relativa a la raíz del proyecto
+    // 2. Relative to project root (dist/client)
     if (!fs.existsSync(path.join(distPath, "index.html"))) {
       distPath = path.resolve(process.cwd(), 'dist/client');
-      
-      // 3. Si aún no existe, intentamos la ubicación absoluta en Render
-      if (!fs.existsSync(path.join(distPath, "index.html"))) {
-        distPath = path.resolve(process.cwd(), 'client/dist');
-        
-        // 4. Última opción: estructura de Render
-        if (!fs.existsSync(path.join(distPath, "index.html"))) {
-          distPath = path.resolve('/opt/render/project/src/dist/client');
-        }
-      }
     }
   } else {
     // En desarrollo, usamos la carpeta public

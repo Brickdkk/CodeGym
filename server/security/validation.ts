@@ -119,18 +119,6 @@ export const validateComment = [
 ];
 
 /**
- * Validation rules for payment data
- */
-export const validatePayment = [
-  body('amount')
-    .isInt({ min: 1 })
-    .withMessage('Valid amount is required'),
-  body('currency')
-    .equals('CLP')
-    .withMessage('Only CLP currency is supported'),
-];
-
-/**
  * Middleware to handle validation errors
  */
 export function handleValidationErrors(req: Request, res: Response, next: NextFunction) {

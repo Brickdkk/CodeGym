@@ -1,23 +1,19 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
-import { insertCommentSchema, exercises, userProgress, submissions, userStreaks, users } from "../shared/schema.js";
+import { insertCommentSchema, exercises, userProgress, submissions, userStreaks, users, languages } from "../shared/schema.js";
 import { z } from "zod";
-import { githubImportService, type GitHubExercise } from "./githubImport.js";
 import { insertSubmissionSchema, insertUserProgressSchema } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, sql, count } from "drizzle-orm";
-import { freeAIService } from "./freeAIService.js";
-import { codeExecutionService } from "./codeExecutionService.js";
-import { fixedCodeExecutionService } from "./fixedCodeExecutionService.js";
 import passport from "passport";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 
 // Security imports
 import { loginRateLimit } from "./security/rateLimiting.js";
-import { validateExerciseSubmission, validateComment, handleValidationErrors, sanitizeCode } from "./security/validation.js";
+import { validateExerciseSubmission, validateComment, handleValidationErrors } from "./security/validation.js";
 import { securityLogger } from "./security/securityLogger.js";
+import { achievementService } from "./achievementService.js";
 import { provideCSRFToken, verifyCSRFToken } from "./security/csrf.js";
 
 import type { Request, Response, NextFunction } from "express";
@@ -30,7 +26,7 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   res.status(401).json({ message: "No autenticado" });
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   // Auth routes
   app.get('/api/auth/user', async (req, res) => {
     if (req.isAuthenticated()) {
@@ -69,7 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     body('password').isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres'),
     body('firstName').trim().notEmpty().withMessage('El nombre es obligatorio'),
     body('lastName').trim().notEmpty().withMessage('El apellido es obligatorio'),
-  ], async (req, res) => {
+  ], async (req: any, res: any) => {
     try {
       // Validar entrada
       const errors = validationResult(req);
@@ -102,11 +98,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName,
         profileImageUrl: profileImageUrl || "",
         password: hashedPassword,
-        isPremium: false
-      });
+      } as any);
 
       // Iniciar sesión automáticamente
-      req.login({ id: userId, email, firstName, lastName, profileImageUrl }, (err) => {
+      req.login({ id: userId, email, firstName, lastName, profileImageUrl }, (err: any) => {
         if (err) {
           console.error("Error de inicio de sesión tras registro:", err);
           return res.status(500).json({ message: 'Error en el inicio de sesión automático' });
@@ -120,17 +115,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Login con email y contraseña
-  app.post('/api/auth/login/local', loginRateLimit, [
+  app.post('/api/auth/login/local', loginRateLimit(), [
     body('email').isEmail(),
     body('password').notEmpty()
-  ], (req, res, next) => {
+  ], (req: any, res: any, next: any) => {
     // Validar entrada
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    passport.authenticate('local', (err, user, info) => {
+    passport.authenticate('local', (err: any, user: any, info: any) => {
       if (err) {
         console.error("Error en autenticación local:", err);
         return next(err);
@@ -138,7 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(401).json({ message: info.message || 'Autenticación fallida' });
       }
-      req.login(user, (err) => {
+      req.login(user, (err: any) => {
         if (err) {
           return next(err);
         }
@@ -211,21 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Exercise by slug route (must come before the generic /:slug route)
-  app.get('/api/exercises/:id', async (req, res) => {
-    try {
-      const exercise = await storage.getExerciseBySlug(req.params.id);
-      if (!exercise) {
-        return res.status(404).json({ message: "Exercise not found" });
-      }
-      res.json(exercise);
-    } catch (error) {
-      console.error("Error fetching exercise:", error);
-      res.status(500).json({ message: "Failed to fetch exercise" });
-    }
-  });
-
-  // Exercises routes
+  // Exercises by language
   app.get('/api/languages/:slug/exercises', async (req, res) => {
     try {
       const { difficulty } = req.query;
@@ -237,7 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Exercise search route for rankings
+  // Exercise search route for rankings (static route — must come before :slug param)
   app.get('/api/exercises/search', async (req, res) => {
     try {
       const { language, difficulty, search } = req.query;
@@ -253,6 +234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Exercise by slug (single handler — no duplicates)
   app.get('/api/exercises/:slug', async (req, res) => {
     try {
       const exercise = await storage.getExerciseBySlug(req.params.slug);
@@ -266,39 +248,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Code execution route (for guests and authenticated users) - VS Code Copilot style
+  // Code execution stub — actual execution happens client-side via WASM.
+  // This endpoint only records the result sent from the client.
   app.post('/api/exercises/:slug/execute', async (req, res) => {
     try {
-      // Security logging
-      securityLogger.logSecurityEvent(req, 'CODE_EXECUTION', { 
-        exerciseSlug: req.params.slug,
-        codeLength: req.body.code?.length || 0
-      });
-
       const exercise = await storage.getExerciseBySlug(req.params.slug);
       
       if (!exercise) {
         return res.status(404).json({ message: "Exercise not found" });
       }
 
-      const { code } = req.body;
-      
-      if (!code || !code.trim()) {
-        return res.status(400).json({ message: "Code is required" });
-      }
-
-      // Validate and sanitize code for security
-      const codeValidation = sanitizeCode(code);
-      if (!codeValidation.isValid) {
-        securityLogger.logSecurityEvent(req, 'CODE_EXECUTION', { 
-          dangerous: true,
-          error: codeValidation.error,
-          originalCode: code.substring(0, 100) + '...'
-        }, 'CRITICAL');
-        return res.status(400).json({ message: codeValidation.error });
-      }
-
-      // Parse test cases from exercise with robust error handling
+      // Return exercise test cases so the client can run them locally
       let testCases: Array<{input: string, expected: string}> = [];
       try {
         if (exercise.testCases) {
@@ -322,42 +282,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         testCases = [];
       }
 
-      // If no test cases, create a basic one
-      if (testCases.length === 0) {
-        testCases = [{ input: '', expected: 'Hello World' }];
-      }
-
       // Get language information
       const language = await storage.getLanguageById(exercise.languageId);
       const languageSlug = language?.slug || 'javascript';
 
-      // Execute code with fixed service that handles test cases correctly
-      const executionResult = await fixedCodeExecutionService.executeCode(
-        code,
-        languageSlug,
-        testCases,
-        `execute_${Date.now()}`
-      );
-      
       res.json({
-        results: {
-          status: executionResult.allTestsPassed ? 'accepted' : 'wrong_answer',
-          executionTime: executionResult.executionTime,
-          memoryUsed: executionResult.memoryUsed,
-          output: executionResult.output,
-          error: executionResult.error,
-          testResults: executionResult.testResults,
-          summary: executionResult.summary,
-          allTestsPassed: executionResult.allTestsPassed
-        }
+        testCases,
+        languageSlug,
+        exerciseTitle: exercise.title,
+        message: 'Execute code client-side via WASM'
       });
     } catch (error: any) {
-      console.error("Error executing code:", error);
-      res.status(500).json({ message: "Failed to execute code", error: error?.message });
+      console.error("Error fetching exercise data:", error);
+      res.status(500).json({ message: "Failed to fetch exercise data", error: error?.message });
     }
   });
 
   // Submissions routes (authenticated users only)
+  // Client executes code via WASM and sends results for persistence
   app.post('/api/exercises/:slug/submit', isAuthenticated, async (req: any, res) => {
     try {
       const userId = (req.user as any).id;
@@ -367,80 +309,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Exercise not found" });
       }
 
+      // The client sends: code, status, executionTime, memoryUsed, testResults
+      const { code, status, executionTime, memoryUsed, testResults, allTestsPassed } = req.body;
+
       const submissionData = insertSubmissionSchema.parse({
         userId,
         exerciseId: exercise.id,
-        code: req.body.code,
-        status: "pending"
+        code: code,
+        status: status || "pending"
       });
 
-      // Execute code using the same service as the execute endpoint
-      let testCases: Array<{input: string, expected: string}> = [];
-      try {
-        if (exercise.testCases && Array.isArray(exercise.testCases)) {
-          testCases = exercise.testCases.map((tc: any) => ({
-            input: tc.input || '',
-            expected: tc.output || tc.expected || ''
-          }));
-        } else if (typeof exercise.testCases === 'string') {
-          const parsed = JSON.parse(exercise.testCases);
-          if (Array.isArray(parsed)) {
-            testCases = parsed.map((tc: any) => ({
-              input: tc.input || '',
-              expected: tc.output || tc.expected || ''
-            }));
-          }
-        }
-      } catch (error) {
-        console.error('Error parsing test cases for submission:', error);
-        testCases = [];
-      }
-
-      // If no test cases, create a basic one
-      if (testCases.length === 0) {
-        testCases = [{ input: '', expected: 'Hello World' }];
-      }
-      const language = await storage.getLanguageById(exercise.languageId);
-      const languageSlug = language?.slug || 'javascript';
-
-      const executionResult = await fixedCodeExecutionService.executeCode(
-        req.body.code,
-        languageSlug,
-        testCases,
-        `submit_${Date.now()}`
-      );
-      
-      const testResults = {
-        status: executionResult.allTestsPassed ? 'accepted' : 'wrong_answer',
-        executionTime: executionResult.executionTime,
-        memoryUsed: executionResult.memoryUsed,
-        output: executionResult.output,
-        testResults: executionResult.testResults
-      };
-      
       const submission = await storage.createSubmission({
         ...submissionData,
-        status: testResults.status,
-        executionTime: testResults.executionTime,
-        memoryUsed: testResults.memoryUsed
-      });
+        status: allTestsPassed ? 'accepted' : (status || 'wrong_answer'),
+        executionTime: executionTime || 0,
+        memoryUsed: memoryUsed || 0
+      } as any);
 
       // Update user progress and rankings if solved
-      if (testResults.status === "accepted") {
+      if (allTestsPassed) {
         await storage.updateUserProgress({
           userId,
           exerciseId: exercise.id,
           solved: true,
-          bestTime: testResults.executionTime,
+          bestTime: executionTime || 0,
           attempts: 1,
           lastAttempt: new Date()
-        });
+        } as any);
 
         // Update exercise ranking automatically
         await storage.updateExerciseRanking({
           exerciseId: exercise.id,
           userId,
-          executionTime: testResults.executionTime || 0,
+          executionTime: executionTime || 0,
           submissionId: submission.id
         });
       }
@@ -448,13 +349,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         submission,
         results: {
-          status: testResults.status,
-          executionTime: testResults.executionTime,
-          memoryUsed: testResults.memoryUsed,
-          output: testResults.output,
-          testResults: testResults.testResults,
-          summary: executionResult.summary,
-          allTestsPassed: executionResult.allTestsPassed
+          status: allTestsPassed ? 'accepted' : (status || 'wrong_answer'),
+          executionTime: executionTime || 0,
+          memoryUsed: memoryUsed || 0,
+          testResults: testResults || [],
+          allTestsPassed: allTestsPassed || false
         }
       });
     } catch (error) {
@@ -501,117 +400,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch stats" });
     }
   });
-
-  // GitHub Import routes (authenticated admin only)
-  app.post('/api/admin/import/exercises', isAuthenticated, async (req: any, res) => {
-    try {
-      const { exercises } = req.body;
-      
-      if (!Array.isArray(exercises)) {
-        return res.status(400).json({ message: "Se requiere un array de ejercicios" });
-      }
-
-      const result = await githubImportService.importExercises(exercises as GitHubExercise[]);
-      
-      res.json(result);
-    } catch (error) {
-      console.error("Error importing exercises:", error);
-      res.status(500).json({ message: "Error al importar ejercicios" });
-    }
-  });
-
-  app.post('/api/admin/import/parse-markdown', isAuthenticated, async (req: any, res) => {
-    try {
-      const { markdownContent, filename } = req.body;
-      
-      if (!markdownContent || !filename) {
-        return res.status(400).json({ message: "Se requiere contenido markdown y nombre de archivo" });
-      }
-
-      const exercise = githubImportService.parseMarkdownToExercise(markdownContent, filename);
-      
-      if (!exercise) {
-        return res.status(400).json({ message: "No se pudo parsear el archivo markdown" });
-      }
-
-      res.json({ exercise });
-    } catch (error) {
-      console.error("Error parsing markdown:", error);
-      res.status(500).json({ message: "Error al parsear markdown" });
-    }
-  });
-
-  // Batch import endpoint for multiple markdown files
-  app.post('/api/admin/import/batch-markdown', isAuthenticated, async (req: any, res) => {
-    try {
-      const { files } = req.body; // Array of { content: string, filename: string }
-      
-      if (!Array.isArray(files)) {
-        return res.status(400).json({ message: "Se requiere un array de archivos" });
-      }
-
-      const exercises: GitHubExercise[] = [];
-      const parseErrors: string[] = [];
-
-      for (const file of files) {
-        try {
-          const exercise = githubImportService.parseMarkdownToExercise(file.content, file.filename);
-          if (exercise) {
-            exercises.push(exercise);
-          } else {
-            parseErrors.push(`No se pudo parsear: ${file.filename}`);
-          }
-        } catch (error) {
-          parseErrors.push(`Error en ${file.filename}: ${error}`);
-        }
-      }
-
-      if (exercises.length === 0) {
-        return res.status(400).json({ 
-          message: "No se pudo parsear ningún ejercicio",
-          errors: parseErrors 
-        });
-      }
-
-      // Import the parsed exercises
-      const importResult = await githubImportService.importExercises(exercises);
-      
-      res.json({
-        ...importResult,
-        parseErrors
-      });
-    } catch (error) {
-      console.error("Error in batch import:", error);
-      res.status(500).json({ message: "Error en importación masiva" });
-    }
-  });
-
-  // Ruta para importar ejercicios adicionales predefinidos
-  app.post('/api/admin/import/additional-exercises', async (req, res) => {
-    try {
-      const { githubExerciseData } = await import('./githubExerciseData.js');
-      
-      console.log(`Iniciando importación de ${githubExerciseData.length} ejercicios adicionales...`);
-      
-      const result = await githubImportService.importExercises(githubExerciseData);
-      
-      console.log(`Importación completada. Ejercicios importados: ${result.exercisesImported}`);
-      
-      res.json({
-        ...result,
-        message: `Se importaron ${result.exercisesImported} ejercicios adicionales exitosamente`
-      });
-    } catch (error) {
-      console.error('Error en importación de ejercicios adicionales:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Error interno del servidor durante la importación',
-        details: error.message
-      });
-    }
-  });
-
-
 
   // Comments endpoints
   app.get('/api/exercises/:id/comments', async (req, res) => {
@@ -678,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId
       });
 
-      const comment = await storage.createComment(commentData);
+      const comment = await storage.createComment(commentData as any);
       res.json(comment);
     } catch (error) {
       console.error('Error creating comment:', error);
@@ -721,7 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const updates = updateSchema.parse(req.body);
-      const user = await storage.updateUserProfile(userId, updates);
+      const user = await storage.updateUserProfile(userId, updates as any);
       res.json(user);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -809,76 +597,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Code Explanation - Free for registered users
-  app.post('/api/ai/explain-code', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const { userCode, language, exerciseTitle } = req.body;
-      
-      if (!userCode || !language) {
-        return res.status(400).json({ message: "Se requiere código y lenguaje" });
-      }
-
-      const explanation = await freeAIService.explainCode(
-        userCode,
-        language,
-        exerciseTitle,
-        userId
-      );
-
-      res.json(explanation);
-    } catch (error: any) {
-      console.error("Error explaining code:", error);
-      res.status(500).json({ message: error.message || "Error al explicar el código" });
-    }
-  });
-
-  // AI Error Explanation - Free for registered users
-  app.post('/api/ai/explain-error', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const { userCode, expectedOutput, actualOutput, language, exerciseTitle } = req.body;
-
-      if (!userCode || !expectedOutput || !actualOutput || !language) {
-        return res.status(400).json({ message: 'Missing required fields' });
-      }
-      
-      // This now uses the free AI service
-      const explanation = await freeAIService.explainCode(
-        `${userCode}\n\nError: La salida esperada era "${expectedOutput}" pero se obtuvo "${actualOutput}"`,
-        language,
-        exerciseTitle,
-        userId
-      );
-      
-      res.json(explanation);
-    } catch (error: any) {
-      console.error("Error explaining code error:", error);
-      res.status(500).json({ message: "Error al explicar el error del código" });
-    }
-  });
-
-  // AI Personalized Recommendations - Free for registered users
-  app.post('/api/ai/personalized-recommendations', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const { userLevel, completedExercises, struggledTopics } = req.body;
-      
-      // This now uses the free AI service
-      const recommendations = await freeAIService.explainCode(
-        `Nivel de usuario: ${userLevel}\nEjercicios completados: ${completedExercises.join(', ')}\nTemas con dificultad: ${struggledTopics.join(', ')}`,
-        'meta',
-        'Recomendaciones personalizadas',
-        userId
-      );
-      
-      res.json(recommendations);
-    } catch (error: any) {
-      console.error("Error getting recommendations:", error);
-      res.status(500).json({ message: "Error al obtener recomendaciones" });
-    }
-  });
-
   // PATCH route for profile updates
   app.patch('/api/profile', isAuthenticated, async (req, res) => {
     try {
@@ -899,31 +617,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const updates = updateSchema.parse(req.body);
-      const user = await storage.updateUserProfile(userId, updates);
+      const user = await storage.updateUserProfile(userId, updates as any);
       res.json(user);
     } catch (error: any) {
       console.error('Error updating profile:', error);
       res.status(500).json({ error: 'Failed to update profile' });
-    }
-  });
-
-  // Exercise-specific rankings endpoint - public access for guests  
-  app.get("/api/exercises/:exerciseSlug/rankings", async (req, res) => {
-    try {
-      const { exerciseSlug } = req.params;
-      
-      // Get exercise by slug first
-      const exercise = await storage.getExerciseBySlug(exerciseSlug);
-      if (!exercise) {
-        return res.status(404).json({ error: "Exercise not found" });
-      }
-      
-      // Get real exercise rankings from database - top 5 fastest times
-      const realRankings = await storage.getExerciseRankings(exercise.id);
-      res.json(realRankings);
-    } catch (error) {
-      console.error("Error fetching exercise rankings:", error);
-      res.status(500).json({ error: "Failed to fetch exercise rankings" });
     }
   });
 
@@ -937,10 +635,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get real achievements data from database
-      const userStats = await storage.getUserStats(userId);
-      const achievements = []; // No fake achievements - only real unlocked achievements
+      const result = await achievementService.getUserAchievementsWithProgress(userId);
 
-      res.json(achievements);
+      res.json(result);
     } catch (error) {
       console.error("Error fetching user achievements:", error);
       res.status(500).json({ error: "Failed to fetch achievements" });
@@ -956,17 +653,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      // Get user progress data
-      const progressData = await db
-        .select()
+      // All counts via SQL aggregation — zero in-memory arrays
+      const [progressAgg] = await db
+        .select({
+          solvedExercises: sql<number>`count(*) filter (where ${userProgress.solved} = true)`,
+          totalAttempts: sql<number>`coalesce(sum(${userProgress.attempts}), 0)`,
+          averageTime: sql<number>`coalesce(avg(${userProgress.bestTime}) filter (where ${userProgress.solved} = true and ${userProgress.bestTime} is not null), 0)`,
+        })
         .from(userProgress)
         .where(eq(userProgress.userId, userId));
 
-      // Get user submissions for calculating best rank
-      const submissionsData = await db
-        .select()
-        .from(submissions)
-        .where(eq(submissions.userId, userId));
+      // Get total exercises count
+      const [totalExercisesResult] = await db
+        .select({ count: count(exercises.id) })
+        .from(exercises);
 
       // Get user streak data
       const streakData = await db
@@ -975,20 +675,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(userStreaks.userId, userId))
         .limit(1);
 
-      // Get total exercises count
-      const totalExercisesResult = await db
-        .select({ count: count(exercises.id) })
-        .from(exercises);
-
-      const totalExercises = totalExercisesResult[0]?.count || 0;
-      const solvedExercises = progressData.filter((p: any) => p.solved).length;
-      const totalAttempts = progressData.reduce((sum: number, progress: any) => sum + (progress.attempts || 0), 0);
-      
-      // Calculate average time from solved exercises only
-      const solvedProgressData = progressData.filter((p: any) => p.solved && p.bestTime);
-      const averageTime = solvedProgressData.length > 0 
-        ? Math.round(solvedProgressData.reduce((sum: number, progress: any) => sum + progress.bestTime, 0) / solvedProgressData.length)
-        : 0;
+      const totalExercises = totalExercisesResult?.count || 0;
+      const solvedExercises = Number(progressAgg?.solvedExercises ?? 0);
+      const totalAttempts = Number(progressAgg?.totalAttempts ?? 0);
+      const averageTime = Math.round(Number(progressAgg?.averageTime ?? 0));
 
       // Calculate success rate
       const successRate = totalAttempts > 0 ? Math.round((solvedExercises / totalAttempts) * 100) : 0;
@@ -1003,7 +693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalExercises,
         solvedExercises,
         averageTime,
-        bestRank: bestRank,
+        bestRank,
         totalAttempts,
         successRate,
         currentStreak
@@ -1046,7 +736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/learning-paths", isAuthenticated, async (req, res) => {
     try {
       // No fake learning paths - only real user progress data
-      const learningPaths = [];
+      const learningPaths: any[] = [];
       res.json(learningPaths);
     } catch (error) {
       console.error("Error fetching learning paths:", error);
@@ -1054,23 +744,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Exercise counts by language endpoint
+  // Exercise counts by language endpoint (single GROUP BY query, no N+1)
   app.get("/api/exercise-counts", async (req, res) => {
     try {
-      // Get real exercise counts from database
-      const languages = await storage.getLanguages();
-      const exerciseCounts = [];
+      const results = await db
+        .select({
+          languageSlug: languages.slug,
+          languageName: languages.name,
+          exerciseCount: sql<number>`count(${exercises.id})::int`,
+        })
+        .from(languages)
+        .leftJoin(exercises, eq(exercises.languageId, languages.id))
+        .groupBy(languages.id, languages.slug, languages.name)
+        .orderBy(languages.name);
 
-      for (const language of languages) {
-        const exercises = await storage.getExercisesByLanguage(language.slug);
-        exerciseCounts.push({
-          languageSlug: language.slug,
-          languageName: language.name,
-          exerciseCount: exercises.length
-        });
-      }
-
-      res.json(exerciseCounts);
+      res.json(results);
     } catch (error) {
       console.error("Error fetching exercise counts:", error);
       res.status(500).json({ error: "Failed to fetch exercise counts" });
@@ -1084,10 +772,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Only allow admin access to security dashboard
       if (userId !== 'admin') {
-        securityLogger.logSecurityEvent(req, 'ADMIN_ACCESS', {
-          unauthorized: true,
-          attemptedResource: 'security dashboard'
-        }, 'HIGH');
         return res.status(403).json({ error: 'Access denied' });
       }
 
@@ -1117,11 +801,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { securityTestSuite } = await import('./security/securityTests.js');
       const testResults = await securityTestSuite.runAllTests();
       const report = securityTestSuite.generateSecurityReport(testResults);
-      
-      securityLogger.logSecurityEvent(req, 'ADMIN_ACCESS', {
-        securityTestRun: true,
-        testsPassed: testResults.overallPassed
-      });
 
       res.json({
         results: testResults,
@@ -1168,29 +847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate exercises for specific languages endpoint
-  app.post('/api/admin/generate-exercises', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      
-      if (userId !== 'admin') {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-      console.log('Starting manual exercise generation for C, C++, C#...');
-      const { specificLanguageExerciseGenerator } = await import('./generateSpecificLanguageExercises.js');
-      await specificLanguageExerciseGenerator.generateForAllTargetLanguages();
-      
-      res.json({
-        success: true,
-        message: 'Exercise generation completed for C, C++, C#',
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error('Error generating exercises:', error);
-      res.status(500).json({ error: 'Failed to generate exercises' });
-    }
-  });
-
-  const httpServer = createServer(app);
-  return httpServer;
+  // Routes registered on app — no HTTP server created here.
+  // The HTTP server is created by the entry point (server/index.ts for dev,
+  // or the Vercel serverless adapter for production).
 }

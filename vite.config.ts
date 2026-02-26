@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import { fileURLToPath, URL } from 'node:url'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
@@ -10,7 +12,23 @@ export default defineConfig({
     outDir: '../dist/client',
     emptyOutDir: true,
     rollupOptions: {
-      input: 'index.html',
+      input: path.resolve(__dirname, 'client/index.html'),
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-codemirror': [
+            'codemirror',
+            '@codemirror/lang-javascript',
+            '@codemirror/lang-python',
+            '@codemirror/lang-cpp',
+            '@codemirror/lang-html',
+            '@codemirror/lang-css',
+            '@codemirror/theme-one-dark',
+          ],
+          'vendor-ui': ['framer-motion', 'recharts', 'lucide-react'],
+          'vendor-query': ['@tanstack/react-query'],
+        },
+      },
     },
   },
 
@@ -25,7 +43,8 @@ export default defineConfig({
   
   resolve: {
     alias: {
-      '@': path.resolve(path.dirname(fileURLToPath(import.meta.url)), './client/src'),
+      '@': path.resolve(__dirname, './client/src'),
+      '@shared': path.resolve(__dirname, './shared'),
     },
   },
 });

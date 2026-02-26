@@ -2,7 +2,7 @@ import type { Request } from 'express';
 
 interface SecurityEvent {
   timestamp: Date;
-  type: 'AUTH_FAILURE' | 'RATE_LIMIT' | 'INVALID_INPUT' | 'PAYMENT_ATTEMPT' | 'CODE_EXECUTION' | 'PREMIUM_ACCESS';
+  type: 'AUTH_FAILURE' | 'RATE_LIMIT' | 'INVALID_INPUT';
   userId?: string;
   ip: string;
   userAgent: string;
@@ -59,12 +59,6 @@ class SecurityLogger {
         return details.exceedCount > 5 ? 'HIGH' : 'MEDIUM';
       case 'INVALID_INPUT':
         return details.potentialAttack ? 'HIGH' : 'LOW';
-      case 'PAYMENT_ATTEMPT':
-        return details.suspicious ? 'CRITICAL' : 'LOW';
-      case 'CODE_EXECUTION':
-        return details.dangerous ? 'CRITICAL' : 'LOW';
-      case 'PREMIUM_ACCESS':
-        return details.unauthorized ? 'HIGH' : 'LOW';
       default:
         return 'MEDIUM';
     }
@@ -99,14 +93,6 @@ class SecurityLogger {
     const rateLimitHits = recentEvents.filter(e => e.type === 'RATE_LIMIT').length;
     if (rateLimitHits >= 3) {
       this.alertSuspiciousActivity('Repeated rate limit violations', event.ip, { rateLimitHits });
-    }
-
-    // Check for dangerous code execution attempts
-    const dangerousCode = recentEvents.filter(e => 
-      e.type === 'CODE_EXECUTION' && e.details.dangerous
-    ).length;
-    if (dangerousCode >= 1) {
-      this.alertSuspiciousActivity('Dangerous code execution attempt', event.ip, { dangerousCode });
     }
   }
 

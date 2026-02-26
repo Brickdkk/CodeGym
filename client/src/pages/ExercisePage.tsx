@@ -1,39 +1,24 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import CodeEditor from "@/components/CodeEditor";
 import GuestSuccessModal from "@/components/GuestSuccessModal";
 import CommentsSection from "@/components/CommentsSection";
 import ExerciseRankings from "@/components/ExerciseRankings";
-import AIErrorExplanation from "@/components/AIErrorExplanation";
-import { ArrowLeft, Play, Send, Clock, MemoryStick, Trophy, User, Terminal, Brain, Loader2 } from "lucide-react";
+import TestResultsFeedback from "@/components/TestResultsFeedback";
+import SuccessAnimation from "@/components/SuccessAnimation";
+import { ArrowLeft, Play, Send, MemoryStick, Trophy, User } from "lucide-react";
 import type { Exercise } from "@shared/schema";
-
-interface ExecutionResult {
-  status: string;
-  executionTime?: number;
-  memoryUsed?: number;
-  output?: string;
-  error?: string;
-  testResults?: Array<{
-    testNumber: number;
-    input: string;
-    expected: string;
-    actual: string;
-    passed: boolean;
-    executionTime: number;
-  }>;
-  summary?: string;
-  allTestsPassed?: boolean;
-}
+import { runCode, submitCode } from "@/lib/testRunner";
+import type { RunResult } from "@/lib/testRunner";
+import { optimisticProgressUpdate } from "@/lib/progressSync";
 
 export default function ExercisePage() {
   const [match, params] = useRoute("/exercise/:slug");
@@ -42,18 +27,37 @@ export default function ExercisePage() {
   const { isAuthenticated } = useAuth();
   
   const [code, setCode] = useState("");
-  const [results, setResults] = useState<ExecutionResult | null>(null);
+  const [result, setResult] = useState<RunResult | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [showGuestSuccessModal, setShowGuestSuccessModal] = useState(false);
-  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
 
   const { data: exercise, isLoading: exerciseLoading } = useQuery<Exercise>({
     queryKey: [`/api/exercises/${slug}`],
     enabled: !!slug,
   });
 
-  const { data: languages } = useQuery({
+  const { data: languages } = useQuery<Array<{ id: number; slug: string }>>({
     queryKey: ["/api/languages"],
   });
+
+  // Derive the language slug from the exercise's languageId
+  const languageSlug = languages?.find(
+    (l) => l.id === exercise?.languageId
+  )?.slug ?? "javascript";
+
+  // Map language slug to CodeEditor language string
+  const editorLanguage = (() => {
+    switch (languageSlug) {
+      case "python": return "python";
+      case "javascript": return "javascript";
+      case "cpp": return "cpp";
+      case "c": return "c";
+      case "html-css": return "html";
+      default: return "javascript";
+    }
+  })();
 
   // Set starter code when exercise is loaded
   useEffect(() => {
@@ -62,143 +66,103 @@ export default function ExercisePage() {
     }
   }, [exercise]);
 
-  const executeMutation = useMutation({
-    mutationFn: async (code: string) => {
-      const endpoint = isAuthenticated ? `/api/exercises/${slug}/submit` : `/api/exercises/${slug}/execute`;
-      const response = await apiRequest("POST", endpoint, { code });
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      setResults(data.results);
-      if (data.results.status === "accepted") {
-        if (isAuthenticated) {
+  // "Ejecutar Codigo" — run locally, no auth needed
+  const handleRunCode = useCallback(async () => {
+    if (!code.trim()) {
+      toast({
+        title: "Codigo vacio",
+        description: "Por favor, escribe algo de codigo antes de ejecutar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!slug) return;
+
+    setIsRunning(true);
+    setResult(null);
+    try {
+      const runResult = await runCode(slug, code);
+      setResult(runResult);
+      toast({
+        title: "Codigo ejecutado",
+        description: "Revisa los resultados abajo.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error de ejecucion",
+        description: err?.message || "Hubo un problema al ejecutar tu codigo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunning(false);
+    }
+  }, [code, slug, toast]);
+
+  // "Enviar Solucion" — run locally, then persist if authenticated
+  const handleSubmitCode = useCallback(async () => {
+    if (!code.trim()) {
+      toast({
+        title: "Codigo vacio",
+        description: "Por favor, escribe algo de codigo antes de enviar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!slug) return;
+
+    setIsSubmitting(true);
+    setResult(null);
+    try {
+      if (isAuthenticated) {
+        // Authenticated: run + persist
+        const { runResult } = await submitCode(slug, code);
+        setResult(runResult);
+
+        if (runResult.allTestsPassed) {
+          setShowSuccess(true);
           toast({
-            title: "¡Correcto!",
-            description: "Tu solución es correcta. ¡Felicidades!",
+            title: "Correcto!",
+            description: "Tu solucion es correcta. Felicidades!",
             variant: "default",
           });
-          // Invalidate rankings to refresh
+          // Optimistic: instant XP + streak update in cache
+          optimisticProgressUpdate(
+            exercise?.points ?? 10,
+            runResult.totalExecutionTime,
+          );
           queryClient.invalidateQueries({ queryKey: [`/api/exercises/${slug}/rankings`] });
         } else {
-          // Show guest success modal for unregistered users
-          setShowGuestSuccessModal(true);
+          toast({
+            title: "Respuesta incorrecta",
+            description: "Tu codigo no paso todos los casos de prueba.",
+            variant: "destructive",
+          });
         }
       } else {
-        toast({
-          title: "Respuesta incorrecta",
-          description: "Tu código no pasó todos los casos de prueba.",
-          variant: "destructive",
-        });
+        // Guest: run locally only, show guest modal on success
+        const runResult = await runCode(slug, code);
+        setResult(runResult);
+
+        if (runResult.allTestsPassed) {
+          setShowGuestSuccessModal(true);
+        } else {
+          toast({
+            title: "Respuesta incorrecta",
+            description: "Tu codigo no paso todos los casos de prueba.",
+            variant: "destructive",
+          });
+        }
       }
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Sesión expirada",
-          description: "Por favor, inicia sesión para enviar tu solución.",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 1000);
-        return;
-      }
+    } catch (err: any) {
       toast({
         title: "Error",
-        description: "Hubo un problema al enviar tu solución.",
+        description: err?.message || "Hubo un problema al enviar tu solucion.",
         variant: "destructive",
       });
-    },
-  });
-
-  const runCodeMutation = useMutation({
-    mutationFn: async (code: string) => {
-      const response = await apiRequest("POST", `/api/exercises/${slug}/execute`, { code });
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      setResults(data.results);
-      toast({
-        title: "Código ejecutado",
-        description: "Revisa los resultados en el terminal.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error de ejecución",
-        description: "Hubo un problema al ejecutar tu código.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const explainMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/ai/explain-code", {
-        userCode: `// Código del usuario:\n${code}\n\n// Resultado de la ejecución:\n${results?.output || "Sin salida"}`,
-        language: Array.isArray(languages) ? languages.find((lang: any) => lang.id === exercise?.languageId)?.slug || "python" : "python",
-        exerciseTitle: exercise?.title || "Ejercicio"
-      });
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      setAiExplanation(data.explanation || data.message || JSON.stringify(data));
-      toast({
-        title: "Explicación generada",
-        description: "La IA ha analizado tu código y generado una explicación.",
-      });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: "No se pudo generar la explicación. Intenta de nuevo.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleExplainError = () => {
-    if (!results || results.allTestsPassed) return;
-    setAiExplanation(null);
-    explainMutation.mutate();
-  };
-
-  const runCode = () => {
-    if (!code.trim()) {
-      toast({
-        title: "Código vacío",
-        description: "Por favor, escribe algo de código antes de ejecutar.",
-        variant: "destructive",
-      });
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    runCodeMutation.mutate(code);
-  };
-
-  const submitCode = () => {
-    if (!code.trim()) {
-      toast({
-        title: "Código vacío",
-        description: "Por favor, escribe algo de código antes de enviar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    executeMutation.mutate(code);
-  };
+  }, [code, slug, isAuthenticated, toast]);
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -213,7 +177,7 @@ export default function ExercisePage() {
   const getDifficultyLabel = (difficulty: string) => {
     switch (difficulty) {
       case "beginner": return "Principiante";
-      case "basic": return "Básico";
+      case "basic": return "Basico";
       case "intermediate": return "Intermedio";
       case "advanced": return "Avanzado";
       default: return difficulty;
@@ -314,15 +278,15 @@ export default function ExercisePage() {
               </CardContent>
             </Card>
 
-            {/* Test Cases */}
-            {exercise.testCases && Array.isArray(exercise.testCases) && (exercise.testCases as any[]).length > 0 && (
+            {/* Test Cases Examples */}
+            {!!(exercise.testCases && Array.isArray(exercise.testCases) && (exercise.testCases as any[]).length > 0) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Ejemplos</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {exercise.testCases.slice(0, 2).map((testCase: any, index: number) => (
+                    {(exercise.testCases as any[]).slice(0, 2).map((testCase: any, index: number) => (
                       <div key={index} className="space-y-2">
                         <div className="text-sm font-medium">Ejemplo {index + 1}:</div>
                         <div className="bg-muted p-3 rounded font-mono text-sm">
@@ -336,173 +300,9 @@ export default function ExercisePage() {
               </Card>
             )}
 
-            {/* Terminal Output - VS Code Copilot Style */}
-            {results && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Terminal className="h-5 w-5" />
-                    Terminal de Ejecución
-                  </CardTitle>
-                  {results.allTestsPassed !== undefined && (
-                    <div className="flex items-center gap-2">
-                      {results.allTestsPassed ? (
-                        <Badge className="bg-green-500 text-white">
-                          ✅ Todas las pruebas superadas
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-red-500 text-white">
-                          ❌ Algunas pruebas fallaron
-                        </Badge>
-                      )}
-                      {results.summary && (
-                        <span className="text-sm text-muted-foreground">
-                          {results.summary}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* AI Explanation Button for failed tests */}
-                  {!results.allTestsPassed && (
-                    <div className="mt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleExplainError()}
-                        disabled={explainMutation.isPending}
-                        className="text-blue-600 border-blue-300 hover:bg-blue-50"
-                      >
-                        {explainMutation.isPending ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Analizando...
-                          </>
-                        ) : (
-                          <>
-                            <Brain className="h-4 w-4 mr-2" />
-                            ¿Por qué falló mi código?
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-black rounded-lg p-4 font-mono text-sm text-green-400 whitespace-pre-wrap overflow-x-auto">
-                    {results.output || "Sin salida"}
-                  </div>
-                  
-                  {/* AI Explanation */}
-                  {aiExplanation && (
-                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2 flex items-center">
-                        <Brain className="h-4 w-4 mr-2" />
-                        Explicación de IA
-                      </h4>
-                      <div className="text-sm text-blue-700 dark:text-blue-300 whitespace-pre-wrap">
-                        {aiExplanation}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Test Results Details */}
-                  {results.testResults && results.testResults.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      <h4 className="text-sm font-medium">Detalles de Casos de Prueba:</h4>
-                      {results.testResults.map((test: any, index: number) => (
-                        <div
-                          key={index}
-                          className={`p-3 rounded border ${
-                            test.passed 
-                              ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
-                              : 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-sm font-medium ${
-                              test.passed ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {test.passed ? '✅' : '❌'} Caso {test.testNumber}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {test.executionTime}ms
-                            </span>
-                          </div>
-                          <div className="text-sm space-y-1">
-                            <div><strong>Entrada:</strong> <code className="bg-muted px-1 rounded">{test.input}</code></div>
-                            <div><strong>Esperado:</strong> <code className="bg-muted px-1 rounded">{test.expected}</code></div>
-                            <div><strong>Obtenido:</strong> <code className="bg-muted px-1 rounded">{test.actual}</code></div>
-                            {!test.passed && (
-                              <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                                💡 La salida no coincide con lo esperado
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Performance Metrics */}
-                  {(results.executionTime || results.memoryUsed) && (
-                    <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-                      {results.executionTime && (
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          <span>{results.executionTime}ms</span>
-                        </div>
-                      )}
-                      {results.memoryUsed && (
-                        <div className="flex items-center gap-1">
-                          <MemoryStick className="h-4 w-4" />
-                          <span>{results.memoryUsed}MB</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Test Results Table */}
-                  {results.testResults && (
-                    <div className="mt-4">
-                      <h4 className="font-medium mb-2">Resultados de Casos de Prueba:</h4>
-                      <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead className="bg-muted">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Caso</th>
-                              <th className="px-3 py-2 text-left">Entrada</th>
-                              <th className="px-3 py-2 text-left">Esperado</th>
-                              <th className="px-3 py-2 text-left">Obtenido</th>
-                              <th className="px-3 py-2 text-left">Estado</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {results.testResults.map((test: any, index: number) => (
-                              <tr key={index} className="border-t">
-                                <td className="px-3 py-2">{index + 1}</td>
-                                <td className="px-3 py-2 font-mono">{test.input}</td>
-                                <td className="px-3 py-2 font-mono">{test.expected}</td>
-                                <td className="px-3 py-2 font-mono">{test.actual}</td>
-                                <td className="px-3 py-2">
-                                  {test.passed ? (
-                                    <span className="text-green-600">✓ Correcto</span>
-                                  ) : (
-                                    <span className="text-red-600">✗ Incorrecto</span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-
-
-                </CardContent>
-              </Card>
+            {/* Test Results — replaced inline terminal with TestResultsFeedback */}
+            {result && (
+              <TestResultsFeedback result={result} />
             )}
           </div>
 
@@ -510,16 +310,16 @@ export default function ExercisePage() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Editor de Código</CardTitle>
+                <CardTitle className="text-lg">Editor de Codigo</CardTitle>
                 <CardDescription>
-                  Escribe tu solución aquí. Puedes ejecutar el código para probarlo o enviarlo para evaluación.
+                  Escribe tu solucion aqui. Puedes ejecutar el codigo para probarlo o enviarlo para evaluacion.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <CodeEditor
                   value={code}
                   onChange={setCode}
-                  language="javascript"
+                  language={editorLanguage}
                   height="400px"
                 />
               </CardContent>
@@ -528,22 +328,22 @@ export default function ExercisePage() {
             {/* Action Buttons */}
             <div className="flex gap-4">
               <Button 
-                onClick={runCode}
-                disabled={runCodeMutation.isPending}
+                onClick={handleRunCode}
+                disabled={isRunning || isSubmitting}
                 variant="outline" 
                 className="flex-1"
               >
                 <Play className="h-4 w-4 mr-2" />
-                {runCodeMutation.isPending ? "Ejecutando..." : "Ejecutar Código"}
+                {isRunning ? "Ejecutando..." : "Ejecutar Codigo"}
               </Button>
               
               <Button 
-                onClick={submitCode}
-                disabled={executeMutation.isPending || runCodeMutation.isPending}
+                onClick={handleSubmitCode}
+                disabled={isRunning || isSubmitting}
                 className="flex-1"
               >
                 <Send className="h-4 w-4 mr-2" />
-                {executeMutation.isPending ? "Enviando..." : "Enviar Solución"}
+                {isSubmitting ? "Enviando..." : "Enviar Solucion"}
               </Button>
             </div>
 
@@ -555,10 +355,10 @@ export default function ExercisePage() {
                     <span className="font-medium">Modo Invitado</span>
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Estás navegando como invitado. Tu progreso no se guardará.
+                    Estas navegando como invitado. Tu progreso no se guardara.
                   </p>
                   <Button size="sm" onClick={() => window.location.href = "/api/login"}>
-                    Iniciar Sesión
+                    Iniciar Sesion
                   </Button>
                 </CardContent>
               </Card>
@@ -577,7 +377,7 @@ export default function ExercisePage() {
         {exercise && (
           <ExerciseRankings 
             exerciseSlug={exercise.slug} 
-            key={`rankings-${exercise.slug}-${results?.executionTime}`}
+            key={`rankings-${exercise.slug}-${result?.totalExecutionTime}`}
           />
         )}
 
@@ -587,9 +387,15 @@ export default function ExercisePage() {
             isOpen={showGuestSuccessModal}
             onClose={() => setShowGuestSuccessModal(false)}
             exerciseTitle={exercise.title}
-            executionTime={results?.executionTime}
+            executionTime={result?.totalExecutionTime}
           />
         )}
+
+        {/* Success celebration animation */}
+        <SuccessAnimation
+          show={showSuccess}
+          onComplete={() => setShowSuccess(false)}
+        />
       </div>
     </div>
   );

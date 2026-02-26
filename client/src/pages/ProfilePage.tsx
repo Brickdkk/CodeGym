@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { User, Save, Camera, Crown, Trophy, Target, Calendar } from "lucide-react";
+import { User, Save, Camera, Trophy, Target, Calendar } from "lucide-react";
 import { getRelativeTime } from "@/lib/timeUtils";
 
 interface UserProfile {
@@ -21,7 +21,6 @@ interface UserProfile {
   lastName: string;
   profileImageUrl?: string;
   createdAt: string;
-  isPremium?: boolean;
   country?: string;
 }
 
@@ -58,6 +57,7 @@ export default function ProfilePage() {
   const { data: userStats } = useQuery<UserStats>({
     queryKey: ["/api/user/stats"],
     enabled: isAuthenticated,
+    staleTime: 0, // Always refetch — stats change on every submission
     retry: false,
   });
 
@@ -317,7 +317,7 @@ export default function ProfilePage() {
             </Card>
           </div>
 
-          {/* Statistics and Premium Status */}
+          {/* Statistics */}
           <div className="space-y-6">
             {/* Statistics */}
             {userStats && (

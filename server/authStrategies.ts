@@ -47,9 +47,7 @@ export function configureGoogleStrategy() {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   
   // URL dinámica para el callback de Google
-  const baseUrl = process.env.NODE_ENV === 'production'
-    ? 'https://codegym-ejerciciosdeprogramacion.onrender.com'
-    : process.env.BASE_URL || 'http://localhost:5000';
+  const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
   
   const callbackURL = `${baseUrl}/api/auth/google/callback`;
 
@@ -84,7 +82,7 @@ export function configureGoogleStrategy() {
             if (user) {
               await db
                 .update(users)
-                .set({ googleId: profile.id })
+                .set({ googleId: profile.id } as any)
                 .where(eq(users.id, user.id));
               
               // Refrescar datos de usuario
@@ -103,7 +101,6 @@ export function configureGoogleStrategy() {
               lastName: profile.name?.familyName || (profile.displayName?.split(" ").slice(1).join(" ") || ""),
               profileImageUrl: profile.photos?.[0]?.value || "",
               googleId: profile.id,
-              isPremium: false,
             };
 
             await storage.upsertUser(newUser);
@@ -127,9 +124,7 @@ export function configureGitHubStrategy() {
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
   
   // URL dinámica para el callback de GitHub
-  const baseUrl = process.env.NODE_ENV === 'production'
-    ? 'https://codegym-ejerciciosdeprogramacion.onrender.com'
-    : process.env.BASE_URL || 'http://localhost:5000';
+  const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
   
   const callbackURL = `${baseUrl}/api/auth/github/callback`;
 
@@ -165,7 +160,7 @@ export function configureGitHubStrategy() {
             if (user) {
               await db
                 .update(users)
-                .set({ githubId: profile.id })
+                .set({ githubId: profile.id } as any)
                 .where(eq(users.id, user.id));
               
               // Refrescar datos de usuario
@@ -184,7 +179,6 @@ export function configureGitHubStrategy() {
               lastName: profile.displayName?.split(" ").slice(1).join(" ") || "",
               profileImageUrl: profile.photos?.[0]?.value || "",
               githubId: profile.id.toString(),
-              isPremium: false,
             };
 
             await storage.upsertUser(newUser);

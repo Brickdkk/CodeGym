@@ -76,7 +76,7 @@ export class AchievementService {
             userId,
             achievementId: achievement.id,
             unlockedAt: new Date(),
-          });
+          } as any);
 
           unlockedAchievements.push(achievement.name);
         }
@@ -195,7 +195,7 @@ export class AchievementService {
           longestStreak: 1,
           lastActivityDate: today,
           totalActiveDays: 1,
-        })
+        } as any)
         .returning();
       
       return newStreak;
@@ -212,7 +212,7 @@ export class AchievementService {
           lastActivityDate: today,
           totalActiveDays: (userStreak.totalActiveDays || 0) + 1,
           updatedAt: new Date(),
-        })
+        } as any)
         .where(eq(userStreaks.userId, userId))
         .returning();
       
@@ -246,7 +246,7 @@ export class AchievementService {
         lastActivityDate: today,
         totalActiveDays: newTotalActiveDays,
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(userStreaks.userId, userId))
       .returning();
 
@@ -278,7 +278,7 @@ export class AchievementService {
             exercisesCompleted: (existingActivity.exercisesCompleted || 0) + exercisesCompleted,
             timeSpent: (existingActivity.timeSpent || 0) + timeSpent,
             pointsEarned: (existingActivity.pointsEarned || 0) + pointsEarned,
-          })
+          } as any)
           .where(eq(dailyActivity.id, existingActivity.id));
       } else {
         // Create new activity record
@@ -290,7 +290,7 @@ export class AchievementService {
             exercisesCompleted,
             timeSpent,
             pointsEarned,
-          });
+          } as any);
       }
     } catch (error) {
       console.error('Error logging daily activity:', error);

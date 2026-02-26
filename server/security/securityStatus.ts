@@ -44,21 +44,13 @@ export class SecurityStatus {
         status: 'ACTIVE',
         message: 'CORS restricted to authorized domains only'
       },
-      paymentSecurity: {
-        status: 'ACTIVE',
-        message: 'MercadoPago webhook verification and server-side validation'
-      },
       authenticationSecurity: {
         status: 'ACTIVE',
-        message: 'Session management and premium access controls active'
+        message: 'Session management and access controls active'
       },
       securityLogging: {
         status: 'ACTIVE',
         message: 'Security event monitoring and alerting operational'
-      },
-      premiumFeatureProtection: {
-        status: 'ACTIVE',
-        message: 'Premium features protected by subscription validation'
       }
     };
 
@@ -103,14 +95,6 @@ export class SecurityStatus {
     const recommendations: string[] = [];
 
     // Check environment variables
-    if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
-      issues.push('MercadoPago access token not configured');
-    }
-
-    if (!process.env.MERCADOPAGO_WEBHOOK_SECRET) {
-      issues.push('MercadoPago webhook secret not configured');
-    }
-
     if (!process.env.SESSION_SECRET) {
       issues.push('Session secret not configured');
     }

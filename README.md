@@ -1,6 +1,6 @@
 # CodeGym - Plataforma de Ejercicios de Programación
 
-Esta aplicación full-stack permite a los usuarios practicar y mejorar sus habilidades de programación en varios lenguajes.
+Aplicación full-stack para practicar y mejorar habilidades de programación en múltiples lenguajes.
 
 ## Estructura del Proyecto
 
@@ -8,14 +8,13 @@ Esta aplicación full-stack permite a los usuarios practicar y mejorar sus habil
 - `/server`: Backend Node.js con Express y TypeScript
 - `/shared`: Esquemas y tipos compartidos
 - `/migrations`: Scripts de migración para la base de datos
+- `/api`: Entry point para Vercel Serverless Functions
 
 ## Requisitos
 
 - Node.js 18+
-- PostgreSQL
+- PostgreSQL (Neon recomendado para producción)
 - Credenciales de OAuth (Google y GitHub)
-- Credenciales de MercadoPago (opcional)
-- API Key de Google Gemini
 
 ## Desarrollo Local
 
@@ -24,7 +23,7 @@ Esta aplicación full-stack permite a los usuarios practicar y mejorar sus habil
    ```
    npm install
    ```
-3. Crea un archivo `.env` en la raíz con las siguientes variables:
+3. Crea un archivo `.env` basado en `.env.example`:
    ```
    DATABASE_URL=postgresql://user:password@localhost:5432/codegym
    SESSION_SECRET=your_secret_key
@@ -32,8 +31,7 @@ Esta aplicación full-stack permite a los usuarios practicar y mejorar sus habil
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    GITHUB_CLIENT_ID=your_github_client_id
    GITHUB_CLIENT_SECRET=your_github_client_secret
-   GEMINI_API_KEY=your_gemini_api_key
-   MERCADOPAGO_ACCESS_TOKEN=your_mercadopago_token
+   BASE_URL=http://localhost:5000
    ```
 4. Ejecuta migraciones:
    ```
@@ -45,35 +43,37 @@ Esta aplicación full-stack permite a los usuarios practicar y mejorar sus habil
    ```
 6. La aplicación estará disponible en `http://localhost:5000`
 
-## Despliegue en Producción
+## Despliegue en Vercel
 
-Para desplegar en Render:
-
-1. Sigue las instrucciones detalladas en `DEPLOY_CHECKLIST.md`
+1. Conecta el repositorio en el dashboard de Vercel
+2. Configura las variables de entorno en el dashboard:
+   - `DATABASE_URL`, `SESSION_SECRET`, `NODE_ENV=production`
+   - `BASE_URL=https://codegym-kappa.vercel.app`
+   - `ALLOWED_ORIGINS=https://codegym-kappa.vercel.app`
+   - OAuth credentials (Google + GitHub)
+3. Actualiza las redirect URIs de OAuth para el dominio de producción
+4. Vercel desplegará automáticamente en cada push
 
 ### Scripts Disponibles
 
 - `npm run dev`: Inicia el servidor en modo desarrollo
-- `npm run build`: Compila el frontend y el backend para producción
-- `npm run build:windows`: Igual que build pero optimizado para Windows
-- `npm run start`: Inicia la aplicación en modo producción
+- `npm run build`: Compila frontend y backend para producción
+- `npm start`: Inicia la aplicación en modo producción
 - `npm run db:push`: Aplica migraciones de base de datos
-- `npm run db:migrate:auth`: Aplica migraciones específicas para autenticación
-- `npm run deploy`: Construye la aplicación y ejecuta las migraciones (útil para CI/CD)
 
 ## Características Principales
 
 - Autenticación multi-proveedor (Email, Google, GitHub)
-- Ejercicios de programación en múltiples lenguajes
-- Generación de ejercicios con IA
-- Pagos con MercadoPago
+- 80 ejercicios curados en 4 lenguajes (Python, JavaScript, C++, HTML/CSS)
+- Ejecución de código 100% client-side (WASM/Pyodide/JSCPP)
 - Rankings y sistema de puntos
+- Validación instantánea con mensajes pedagógicos
 
-## Tecnologías Utilizadas
+## Tecnologías
 
-- **Frontend**: React, Vite, TypeScript, TailwindCSS
+- **Frontend**: React, Vite, TypeScript, TailwindCSS, Shadcn/UI
 - **Backend**: Node.js, Express, TypeScript
-- **Base de Datos**: PostgreSQL con Drizzle ORM
-- **Autenticación**: Passport.js
-- **IA**: Google Gemini API
-- **Pagos**: MercadoPago
+- **Base de Datos**: PostgreSQL (Neon Serverless) con Drizzle ORM
+- **Autenticación**: Passport.js (Local + Google + GitHub OAuth)
+- **Ejecución de Código**: Pyodide (Python), Web Workers (JS), JSCPP (C++), iframe sandbox (HTML/CSS)
+- **Despliegue**: Vercel (CDN + Serverless Functions)
