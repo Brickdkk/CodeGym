@@ -31,8 +31,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   // Strict transport security (HSTS)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   
-  // Content security policy
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;");
+  // CSP is handled by Helmet in app.ts — do NOT set a duplicate here
   
   next();
 }
