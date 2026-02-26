@@ -19,7 +19,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
-import { Code, Menu, User, LogOut, Trophy, Target, ChevronDown } from "lucide-react";
+import { Menu, User, LogOut, Trophy, Target, ChevronDown } from "lucide-react";
+import logoCodegym from "@/assets/logos/logo-codegym.png";
 
 export default function Header() {
   const [location] = useLocation();
@@ -59,12 +60,11 @@ export default function Header() {
       <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link href="/">
-          <div className="flex items-center space-x-2 cursor-pointer">
-            <div className="bg-primary p-2 rounded-lg">
-              <Code className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <h1 className="text-xl font-bold font-mono">CodeGym</h1>
-          </div>
+          <img
+            src={logoCodegym}
+            alt="CodeGym"
+            className="h-8 md:h-10 w-auto object-contain cursor-pointer"
+          />
         </Link>
 
         {/* Desktop Navigation */}
@@ -180,9 +180,12 @@ export default function Header() {
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
               <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  <Code className="h-5 w-5" />
-                  CodeGym
+                <SheetTitle>
+                  <img
+                    src={logoCodegym}
+                    alt="CodeGym"
+                    className="h-8 w-auto object-contain"
+                  />
                 </SheetTitle>
                 <SheetDescription>
                   Plataforma de ejercicios de programación
