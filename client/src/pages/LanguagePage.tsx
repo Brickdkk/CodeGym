@@ -4,39 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Clock, Users, Trophy, Play } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Clock, Users, Trophy, Play, Code } from "lucide-react";
 import type { Language, Exercise } from "@shared/schema";
-
-// Import language logos
-import pythonLogo from '@/assets/logo-python.png';
-import cLogo from '@/assets/logo-c.png';
-import cppLogo from '@/assets/logo-cpp.png';
-import htmlCssLogo from '@/assets/logo-html-css.png';
-import javascriptLogo from '@/assets/logo-javascript.png';
-
-// Function to get the appropriate logo for each language
-const getLanguageLogo = (slug: string): string | undefined => {
-  switch (slug.toLowerCase()) {
-    case 'python':
-      return pythonLogo;
-    case 'c':
-      return cLogo;
-    case 'cpp':
-    case 'c++':
-      return cppLogo;
-    case 'javascript':
-      return javascriptLogo;
-    case 'html':
-    case 'css':
-      return htmlCssLogo;
-    default:
-      return undefined;
-  }
-};
+import { getLanguageLogo } from "@/lib/languageLogos";
 
 export default function LanguagePage() {
   const [match, params] = useRoute("/language/:slug");
   const slug = params?.slug;
+  const [imgError, setImgError] = useState(false);
 
   const { data: language, isLoading: languageLoading } = useQuery<Language>({
     queryKey: [`/api/languages/${slug}`],
@@ -167,26 +143,26 @@ export default function LanguagePage() {
 
         {/* Language Info */}
         <div className="mb-12">
-          <div className="flex items-center gap-6 mb-6">            <div className="w-20 h-20 rounded-xl flex items-center justify-center bg-muted/50">
-              {language && language.slug ? (
-                (() => {
-                  const logoSrc = getLanguageLogo(language.slug);
-                  return logoSrc ? (
-                    <img 
-                      src={logoSrc} 
-                      alt={`${language.name} logo`}
-                      className="w-16 h-16 object-contain"
-                    />
-                  ) : (
-                    <div 
-                      className="w-16 h-16 rounded-lg flex items-center justify-center text-3xl"
-                      style={{ background: language.color }}
-                    >
-                      <i className={language.icon}></i>
-                    </div>
-                  );
-                })()
-              ) : null}
+          <div className="flex items-center gap-6 mb-6">
+            <div className="w-20 h-20 rounded-xl flex items-center justify-center bg-muted/50">
+              {(() => {
+                const logoSrc = language?.slug ? getLanguageLogo(language.slug) : undefined;
+                return logoSrc && !imgError ? (
+                  <img 
+                    src={logoSrc} 
+                    alt={`${language.name} logo`}
+                    className="w-16 h-16 object-contain"
+                    onError={() => setImgError(true)}
+                  />
+                ) : (
+                  <div 
+                    className="w-16 h-16 rounded-lg flex items-center justify-center"
+                    style={{ background: language?.color || '#6366f1' }}
+                  >
+                    <Code className="h-7 w-7 text-white" />
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <h1 className="text-4xl font-bold mb-2">Ejercicios de {language.name}</h1>

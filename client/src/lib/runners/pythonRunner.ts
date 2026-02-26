@@ -5,6 +5,9 @@
  * Pyodide is loaded from CDN inside the Worker on first execution. A strict
  * 3-second timeout prevents infinite loops from freezing the UI — the Worker
  * is forcefully terminated and a fresh one is created for the next run.
+ *
+ * The timeout applies ONLY to user-code execution, NOT to the initial Pyodide
+ * download (~12 MB WASM, cached by the browser after first load).
  */
 
 import type { ExecutionResult } from '../wasmExecutor';
@@ -19,32 +22,37 @@ export async function executePython(code: string, input: string): Promise<Execut
     const worker = new Worker(url);
 
     let resolved = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const cleanup = () => {
       if (!resolved) {
         resolved = true;
+        if (timeoutId !== null) clearTimeout(timeoutId);
         worker.terminate();
         URL.revokeObjectURL(url);
       }
     };
 
-    // Strict 3-second timeout — terminates worker and returns error
-    const timeoutId = setTimeout(() => {
-      if (!resolved) {
-        cleanup();
-        resolve({
-          stdout: '',
-          stderr: 'Error: Timeout Excedido — La ejecución superó el límite de 3 segundos. Revisa si tu código tiene un bucle infinito.',
-          error: 'Timeout Excedido',
-          executionTime: EXECUTION_TIMEOUT_MS,
-        });
-      }
-    }, EXECUTION_TIMEOUT_MS);
-
     worker.onmessage = (e) => {
       const msg = e.data;
+
+      if (msg.type === 'ready') {
+        // Pyodide loaded — NOW start the execution timeout
+        timeoutId = setTimeout(() => {
+          if (!resolved) {
+            cleanup();
+            resolve({
+              stdout: '',
+              stderr: 'Error: Timeout Excedido — La ejecución superó el límite de 3 segundos. Revisa si tu código tiene un bucle infinito.',
+              error: 'Timeout Excedido',
+              executionTime: EXECUTION_TIMEOUT_MS,
+            });
+          }
+        }, EXECUTION_TIMEOUT_MS);
+        return;
+      }
+
       if (msg.type === 'result') {
-        clearTimeout(timeoutId);
         cleanup();
         resolve({
           stdout: msg.stdout || '',
@@ -52,11 +60,21 @@ export async function executePython(code: string, input: string): Promise<Execut
           error: msg.error || null,
           executionTime: 0,
         });
+        return;
+      }
+
+      if (msg.type === 'load-error') {
+        cleanup();
+        resolve({
+          stdout: '',
+          stderr: msg.error || 'Error al cargar Pyodide',
+          error: msg.error || 'Error al cargar Pyodide',
+          executionTime: 0,
+        });
       }
     };
 
     worker.onerror = (e) => {
-      clearTimeout(timeoutId);
       cleanup();
       resolve({
         stdout: '',
@@ -69,8 +87,6 @@ export async function executePython(code: string, input: string): Promise<Execut
 }
 
 function buildPythonWorkerCode(userCode: string, input: string): string {
-  // Embed user code and input as JSON literals, then reference them inside
-  // the Python wrapper. This avoids nested template-literal escaping issues.
   const codeJson = JSON.stringify(userCode);
   const inputJson = JSON.stringify(input);
 
@@ -80,11 +96,21 @@ function buildPythonWorkerCode(userCode: string, input: string): string {
 importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
 
 async function main() {
+  var pyodide;
   try {
-    var pyodide = await loadPyodide({
+    pyodide = await loadPyodide({
       indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
     });
+  } catch (err) {
+    var loadMsg = err && err.message ? err.message : String(err);
+    self.postMessage({ type: 'load-error', error: loadMsg });
+    return;
+  }
 
+  // Signal that Pyodide is ready — main thread starts timeout NOW
+  self.postMessage({ type: 'ready' });
+
+  try {
     var userCode = ${codeJson};
     var userInput = ${inputJson};
 

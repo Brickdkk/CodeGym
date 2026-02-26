@@ -6,13 +6,7 @@ import LanguageCard from "@/components/LanguageCard";
 import { useAuth } from "@/hooks/useAuth";
 import { Code, Trophy, Shield, Gamepad2, TrendingUp, Smartphone, Rocket, UserPlus, Play } from "lucide-react";
 import type { Language } from "@shared/schema";
-
-// Import language logos
-import pythonLogo from '@/assets/logo-python.png';
-import cLogo from '@/assets/logo-c.png';
-import cppLogo from '@/assets/logo-cpp.png';
-import htmlCssLogo from '@/assets/logo-html-css.png';
-import javascriptLogo from '@/assets/logo-javascript.png';
+import { getLanguageLogo } from "@/lib/languageLogos";
 
 interface Stats {
   activeUsers: number;
@@ -43,27 +37,7 @@ export default function Home() {
     refetchInterval: 10 * 60 * 1000, // 10 minutes in milliseconds
     refetchIntervalInBackground: true,
   });
-  // Function to get the appropriate logo for each language
-  const getLanguageLogo = (slug: string): string | undefined => {
-    switch (slug.toLowerCase()) {
-      case 'python':
-        return pythonLogo;
-      case 'c':
-        return cLogo;
-      case 'cpp':
-      case 'c++':
-        return cppLogo;
-      case 'javascript':
-        return javascriptLogo;
-      case 'html':
-      case 'css':
-      case 'html-css':
-        return htmlCssLogo;
-      default:
-        return undefined;
-    }
-  };
-
+  
   const handleGetStarted = () => {
     // In a real app, this would trigger registration or navigate to exercises
     window.location.href = "/api/login";

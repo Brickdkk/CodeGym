@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight, Play, Code } from "lucide-react";
 import type { Language } from "@shared/schema";
+import { getLanguageLogo } from "@/lib/languageLogos";
 
 interface LanguageCardProps {
   language: Language;
@@ -13,24 +15,27 @@ interface LanguageCardProps {
 
 export default function LanguageCard({ language, exerciseCount, image }: LanguageCardProps) {
   const displayCount = exerciseCount !== undefined ? exerciseCount : language.exerciseCount;
+  const logoSrc = image ?? getLanguageLogo(language.slug);
+  const [imgError, setImgError] = useState(false);
   
   return (
     <Card className="group transition-all duration-300 hover:border-primary hover:shadow-lg hover:shadow-primary/20">
       <CardContent className="p-8">
         {/* Language Logo */}
         <div className="flex items-center justify-center w-20 h-20 rounded-xl mb-6 bg-muted/50 group-hover:scale-110 transition-transform">
-          {image ? (
+          {logoSrc && !imgError ? (
             <img 
-              src={image} 
+              src={logoSrc} 
               alt={`${language.name} logo`}
               className="w-16 h-16 object-contain"
+              onError={() => setImgError(true)}
             />
           ) : (
             <div 
               className="flex items-center justify-center w-16 h-16 rounded-lg"
-              style={{ background: language.color }}
+              style={{ background: language.color || '#6366f1' }}
             >
-              <i className={`${language.icon} text-2xl text-white`}></i>
+              <Code className="h-7 w-7 text-white" />
             </div>
           )}
         </div>
