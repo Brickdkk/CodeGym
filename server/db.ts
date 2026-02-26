@@ -8,8 +8,8 @@ import ws from 'ws';
 neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+  console.error(
+    "FATAL: DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 

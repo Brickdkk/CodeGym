@@ -16,7 +16,15 @@ function ensureInitialized() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  await ensureInitialized();
-  // Delegate to the Express app
-  app(req, res);
+  try {
+    await ensureInitialized();
+    app(req, res);
+  } catch (err: any) {
+    console.error('[api/server] Initialization error:', err);
+    res.status(500).json({
+      error: 'Initialization failed',
+      message: err?.message ?? String(err),
+      stack: err?.stack,
+    });
+  }
 }
