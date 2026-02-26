@@ -1,17 +1,27 @@
 import { body, validationResult } from 'express-validator';
 import type { Request, Response, NextFunction } from 'express';
-import DOMPurify from 'dompurify';
-import { JSDOM } from 'jsdom';
 
-// Create DOMPurify instance for server-side sanitization
-const window = new JSDOM('').window;
-const purify = DOMPurify(window);
+// Lazy-initialized DOMPurify instance.
+// JSDOM is extremely heavy (~8 MB transitive deps) — instantiating it at import
+// time crashes Vercel serverless functions (FUNCTION_INVOCATION_FAILED).
+let purify: any = null;
+
+function getPurify() {
+  if (!purify) {
+    // Dynamic require avoids loading jsdom at module evaluation time
+    const { JSDOM } = require('jsdom');
+    const DOMPurify = require('dompurify');
+    const window = new JSDOM('').window;
+    purify = DOMPurify(window);
+  }
+  return purify;
+}
 
 /**
  * Sanitize HTML content to prevent XSS attacks
  */
 export function sanitizeHtml(dirty: string): string {
-  return purify.sanitize(dirty, {
+  return getPurify().sanitize(dirty, {
     ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br', 'code', 'pre'],
     ALLOWED_ATTR: []
   });

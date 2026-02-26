@@ -22,8 +22,6 @@ const app = express();
 
 // ---- Middleware setup (synchronous) ----
 
-initializePassport();
-
 // Security middleware - applied first
 app.use(helmet({
   contentSecurityPolicy: {
@@ -141,6 +139,9 @@ async function ensureSessionStoreStructure() {
  * app can handle requests.
  */
 export async function initializeApp() {
+  // Configure passport strategies (deferred from module level to reduce cold-start weight)
+  initializePassport();
+
   // Ensure session table exists
   await ensureSessionStoreStructure();
 
