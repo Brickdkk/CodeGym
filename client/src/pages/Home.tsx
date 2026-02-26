@@ -201,7 +201,15 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <div className="relative min-h-screen bg-black text-foreground overflow-hidden">
+      {/* ── Layer 1: Grid background ─────────────────────── */}
+      <div className="absolute inset-0 z-0 bg-grid-pattern pointer-events-none" />
+
+      {/* ── Layer 2: Radial mask (softens grid edges) ────── */}
+      <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_20%,black_100%)]" />
+
+      {/* ── Layer 3: All content ─────────────────────────── */}
+      <div className="relative z-10">
       {/* ── Hero ─────────────────────────────────────────── */}
       <section className="relative py-20 lg:py-28 overflow-hidden">
         {/* Subtle radial gradient behind hero */}
@@ -432,6 +440,7 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
-    </main>
+      </div>{/* end content layer */}
+    </div>
   );
 }
