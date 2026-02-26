@@ -326,15 +326,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {languages
-                .filter((l) => {
-                  // Only show languages that have exercises
-                  const count = exerciseCounts.find(
-                    (c) => c.languageSlug === l.slug
-                  )?.exerciseCount;
-                  return (count ?? l.exerciseCount ?? 0) > 0;
-                })
-                .map((language, index) => {
+              {languages.map((language, index) => {
                   const count = exerciseCounts.find(
                     (c) => c.languageSlug === language.slug
                   )?.exerciseCount;
