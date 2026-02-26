@@ -208,7 +208,7 @@ export const cppExercises: SeedExercise[] = [
     slug: 'cpp-tabla-de-multiplicar',
     description:
       'Lee un número entero n desde la entrada estándar e imprime su tabla de multiplicar del 1 al 10. Cada línea debe tener el formato: "n x i = resultado" (donde i va de 1 a 10).',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'cpp',
     starterCode: [
       '#include <stdio.h>',
@@ -260,7 +260,7 @@ export const cppExercises: SeedExercise[] = [
     slug: 'cpp-contar-digitos',
     description:
       'Lee un número entero positivo desde la entrada estándar y muestra la cantidad de dígitos que tiene. Por ejemplo, 1234 tiene 4 dígitos. El número siempre será mayor o igual a 1.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'cpp',
     starterCode: [
       '#include <stdio.h>',
@@ -303,7 +303,7 @@ export const cppExercises: SeedExercise[] = [
     slug: 'cpp-potencia',
     description:
       'Lee dos números enteros: una base y un exponente (exponente >= 0). Calcula e imprime el resultado de base elevado al exponente sin usar funciones de biblioteca. Usa un bucle para multiplicar.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'cpp',
     starterCode: [
       '#include <stdio.h>',
@@ -346,7 +346,7 @@ export const cppExercises: SeedExercise[] = [
     slug: 'cpp-mcd',
     description:
       'Lee dos números enteros positivos desde la entrada estándar y calcula su Máximo Común Divisor (MCD) usando el algoritmo de Euclides. Imprime el resultado.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'cpp',
     starterCode: [
       '#include <stdio.h>',
@@ -389,7 +389,7 @@ export const cppExercises: SeedExercise[] = [
     slug: 'cpp-numeros-pares',
     description:
       'Lee un número entero n (n >= 2) desde la entrada estándar e imprime todos los números pares desde 2 hasta n (inclusive, si n es par) separados por un espacio. No debe haber espacio al final de la línea.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'cpp',
     starterCode: [
       '#include <stdio.h>',

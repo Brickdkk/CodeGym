@@ -253,7 +253,7 @@ export const htmlExercises: SeedExercise[] = [
     slug: 'html-formulario-contacto',
     description:
       'Crea un formulario de contacto con tres campos etiquetados: "Nombre:", "Email:" y "Mensaje:", junto con un boton de envio que diga "Enviar". Aprende a crear formularios en HTML.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'html-css',
     starterCode: `<!DOCTYPE html>
 <html lang="es">
@@ -314,7 +314,7 @@ export const htmlExercises: SeedExercise[] = [
     slug: 'html-navegacion',
     description:
       'Crea una barra de navegacion (nav) con tres enlaces: Inicio, Acerca de y Contacto. Aprende a crear menus de navegacion con HTML.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'html-css',
     starterCode: `<!DOCTYPE html>
 <html lang="es">
@@ -363,7 +363,7 @@ export const htmlExercises: SeedExercise[] = [
     slug: 'html-tarjeta-perfil',
     description:
       'Crea una tarjeta de perfil usando un div con clase "card" que contenga: un h2 con "Juan Perez", un parrafo con "Desarrollador Web" y otro parrafo con "Madrid, Espana". Aplica estilos CSS basicos.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'html-css',
     starterCode: `<!DOCTYPE html>
 <html lang="es">
@@ -426,7 +426,7 @@ export const htmlExercises: SeedExercise[] = [
     slug: 'html-lista-ordenada',
     description:
       'Crea una pagina con un encabezado h2 "Pasos para cocinar" y una lista ordenada (ol) con tres pasos: Preparar ingredientes, Cocinar y Servir.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'html-css',
     starterCode: `<!DOCTYPE html>
 <html lang="es">
@@ -478,7 +478,7 @@ export const htmlExercises: SeedExercise[] = [
     slug: 'html-pie-de-pagina',
     description:
       'Crea un pie de pagina (footer) con el texto "© 2024 CodeGym. Todos los derechos reservados." Aprende a usar el elemento semantico footer.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'html-css',
     starterCode: `<!DOCTYPE html>
 <html lang="es">

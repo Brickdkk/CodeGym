@@ -186,7 +186,7 @@ export const jsExercises: SeedExercise[] = [
     slug: 'js-fizzbuzz',
     description:
       'Lee un número n. Para cada número del 1 al n: si es divisible entre 3 y 5 imprime "FizzBuzz", si solo entre 3 imprime "Fizz", si solo entre 5 imprime "Buzz", de lo contrario imprime el número.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'javascript',
     starterCode: [
       '// Ejercicio: FizzBuzz',
@@ -224,7 +224,7 @@ export const jsExercises: SeedExercise[] = [
     slug: 'js-contar-palabras',
     description:
       'Lee una oración mediante prompt() e imprime la cantidad de palabras que contiene. Las palabras están separadas por uno o más espacios.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'javascript',
     starterCode: [
       '// Ejercicio: Contar palabras',
@@ -258,7 +258,7 @@ export const jsExercises: SeedExercise[] = [
     slug: 'js-array-invertido',
     description:
       'Lee un número n, luego lee n números (uno por línea). Imprime los números en orden inverso, separados por espacios en una sola línea.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'javascript',
     starterCode: [
       '// Ejercicio: Array invertido',
@@ -295,7 +295,7 @@ export const jsExercises: SeedExercise[] = [
     slug: 'js-numero-perfecto',
     description:
       'Lee un número entero positivo e indica si es un número perfecto. Un número perfecto es igual a la suma de sus divisores propios (excluyéndose a sí mismo). Imprime "Si" o "No".',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'javascript',
     starterCode: [
       '// Ejercicio: Número perfecto',
@@ -334,7 +334,7 @@ export const jsExercises: SeedExercise[] = [
     slug: 'js-triangulo-asteriscos',
     description:
       'Lee un número n e imprime un triángulo rectángulo de asteriscos con n filas. La primera fila tiene 1 asterisco, la segunda 2, y así sucesivamente.',
-    difficulty: 'basic',
+    difficulty: 'beginner',
     languageSlug: 'javascript',
     starterCode: [
       '// Ejercicio: Triángulo de asteriscos',

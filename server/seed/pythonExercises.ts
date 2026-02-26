@@ -165,7 +165,7 @@ print(max(a, b))
     slug: "python-tabla-multiplicar",
     description:
       "Lee un número entero n e imprime su tabla de multiplicar del 1 al 10. Cada línea debe tener el formato: \"n x i = resultado\" (por ejemplo, \"5 x 1 = 5\").",
-    difficulty: "basic",
+    difficulty: "beginner",
     languageSlug: "python",
     starterCode: `# Ejercicio: Tabla de multiplicar
 # Lee un entero n e imprime su tabla del 1 al 10.
@@ -207,7 +207,7 @@ for i in range(1, 11):
     slug: "python-contar-vocales",
     description:
       "Lee una cadena de texto e imprime la cantidad de vocales (a, e, i, o, u) que contiene. Considera tanto mayúsculas como minúsculas.",
-    difficulty: "basic",
+    difficulty: "beginner",
     languageSlug: "python",
     starterCode: `# Ejercicio: Contar vocales
 # Lee una cadena e imprime cuántas vocales tiene.
@@ -242,7 +242,7 @@ print(count)
     slug: "python-invertir-cadena",
     description:
       "Lee una cadena de texto e imprime la cadena invertida (al revés).",
-    difficulty: "basic",
+    difficulty: "beginner",
     languageSlug: "python",
     starterCode: `# Ejercicio: Invertir cadena
 # Lee una cadena e imprime la cadena al revés.
@@ -271,7 +271,7 @@ print(texto[::-1])
     slug: "python-fibonacci",
     description:
       "Lee un número entero n (n >= 1) e imprime los primeros n números de la secuencia de Fibonacci separados por espacios. La secuencia comienza con 0 y 1.",
-    difficulty: "basic",
+    difficulty: "beginner",
     languageSlug: "python",
     starterCode: `# Ejercicio: Fibonacci
 # Lee n e imprime los primeros n números de Fibonacci separados por espacios.
@@ -306,7 +306,7 @@ print(" ".join(fib))
     slug: "python-factorial",
     description:
       "Lee un número entero n (n >= 0) e imprime n! (el factorial de n). Recuerda que 0! = 1.",
-    difficulty: "basic",
+    difficulty: "beginner",
     languageSlug: "python",
     starterCode: `# Ejercicio: Factorial
 # Lee un entero n >= 0 e imprime n! (factorial de n).

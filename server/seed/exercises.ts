@@ -1,14 +1,19 @@
 /**
- * exercises.ts — Seed runner for the 80 curated exercises.
+ * exercises.ts — Seed runner for curated exercises.
  *
  * Imports all per-language exercise arrays, resolves languageId from slug,
  * and upserts into the DB. Called once during app initialization.
+ * Also migrates any legacy "basic" difficulty to "beginner".
  */
 
 import { storage } from '../storage.js';
+import { db } from '../db.js';
+import { exercises } from '../../shared/schema.js';
+import { eq } from 'drizzle-orm';
 import { pythonExercises } from './pythonExercises.js';
 import { jsExercises } from './jsExercises.js';
 import { cppExercises } from './cppExercises.js';
+import { cExercises } from './cExercises.js';
 import { htmlExercises } from './htmlExercises.js';
 import type { SeedExercise } from './types.js';
 import type { InsertExercise } from '../../shared/schema.js';
@@ -17,14 +22,27 @@ const allExercises: SeedExercise[] = [
   ...pythonExercises,
   ...jsExercises,
   ...cppExercises,
+  ...cExercises,
   ...htmlExercises,
 ];
 
 /**
- * Seed all 80 curated exercises. Skips any exercise whose slug already exists.
+ * Seed curated exercises. Skips any exercise whose slug already exists.
+ * Migrates legacy "basic" difficulty → "beginner".
  * Returns the count of newly inserted exercises.
  */
 export async function seedExercises(): Promise<number> {
+  // Migrate any existing "basic" exercises to "beginner"
+  try {
+    const migrated = await db
+      .update(exercises)
+      .set({ difficulty: 'beginner' })
+      .where(eq(exercises.difficulty, 'basic'));
+    console.log('[seed] Migrated "basic" difficulty exercises to "beginner"');
+  } catch (err) {
+    console.error('[seed] Failed to migrate basic→beginner:', err);
+  }
+
   // Build a slug -> languageId map
   const languageMap = new Map<string, number>();
 

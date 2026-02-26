@@ -85,7 +85,7 @@ const difficulties: DifficultyInfo[] = [
 
 function normalizeDifficulty(difficulty: string): string {
   const d = difficulty.toLowerCase();
-  if (["easy", "basic", "principiante"].includes(d)) return "beginner";
+  if (["easy", "principiante"].includes(d)) return "beginner";
   if (["medium", "intermedio"].includes(d)) return "intermediate";
   if (["hard", "avanzado"].includes(d)) return "advanced";
   return d;

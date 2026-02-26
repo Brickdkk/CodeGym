@@ -85,11 +85,18 @@ export default function RankingPage() {
       case 'intermediate':
         return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
       case 'advanced':
-        return "bg-orange-500/10 text-orange-600 border-orange-500/20";
-      case 'expert':
         return "bg-red-500/10 text-red-600 border-red-500/20";
       default:
         return "bg-gray-500/10 text-gray-600 border-gray-500/20";
+    }
+  };
+
+  const getDifficultyLabel = (difficulty: string) => {
+    switch (difficulty.toLowerCase()) {
+      case 'beginner': return 'Principiante';
+      case 'intermediate': return 'Intermedio';
+      case 'advanced': return 'Avanzado';
+      default: return difficulty;
     }
   };
 
@@ -170,7 +177,6 @@ export default function RankingPage() {
                 <SelectItem value="beginner">Principiante</SelectItem>
                 <SelectItem value="intermediate">Intermedio</SelectItem>
                 <SelectItem value="advanced">Avanzado</SelectItem>
-                <SelectItem value="expert">Experto</SelectItem>
               </SelectContent>
             </Select>
 
@@ -209,7 +215,7 @@ export default function RankingPage() {
                   <div className="flex items-start justify-between">
                     <CardTitle className="text-lg line-clamp-2">{exercise.title}</CardTitle>
                     <Badge variant="outline" className={getDifficultyColor(exercise.difficulty)}>
-                      {exercise.difficulty}
+                      {getDifficultyLabel(exercise.difficulty)}
                     </Badge>
                   </div>
                   <CardDescription>

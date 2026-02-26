@@ -70,7 +70,7 @@ export const exercises = pgTable("exercises", {
   title: varchar("title", { length: 200 }).notNull(),
   slug: varchar("slug", { length: 200 }).notNull().unique(),
   description: text("description").notNull(),
-  difficulty: varchar("difficulty", { length: 20 }).notNull(), // "beginner", "basic", "intermediate", "advanced"
+  difficulty: varchar("difficulty", { length: 20 }).notNull(), // "beginner", "intermediate", "advanced"
   languageId: integer("language_id").references(() => languages.id).notNull(),
   starterCode: text("starter_code"),
   solution: text("solution"),

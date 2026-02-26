@@ -8,14 +8,16 @@
 
 import pythonLogo from '@/assets/logos/python.svg';
 import javascriptLogo from '@/assets/logos/javascript.svg';
+import cppLogo from '@/assets/logos/cpp.svg';
+import cLogo from '@/assets/logos/c.svg';
 import htmlCssLogo from '@/assets/logos/html-css.svg';
 
 /** Canonical slug → logo mapping. */
 const logoMap: Record<string, string> = {
   python: pythonLogo,
   javascript: javascriptLogo,
-  cpp: 'https://raw.githubusercontent.com/devicons/devicon/master/icons/cplusplus/cplusplus-original.svg',
-  c: 'https://raw.githubusercontent.com/devicons/devicon/master/icons/c/c-original.svg',
+  cpp: cppLogo,
+  c: cLogo,
   'html-css': htmlCssLogo,
 };
 

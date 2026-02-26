@@ -167,7 +167,6 @@ export default function ExercisePage() {
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "beginner": return "bg-green-500";
-      case "basic": return "bg-blue-500";
       case "intermediate": return "bg-yellow-500";
       case "advanced": return "bg-red-500";
       default: return "bg-gray-500";
@@ -177,7 +176,6 @@ export default function ExercisePage() {
   const getDifficultyLabel = (difficulty: string) => {
     switch (difficulty) {
       case "beginner": return "Principiante";
-      case "basic": return "Basico";
       case "intermediate": return "Intermedio";
       case "advanced": return "Avanzado";
       default: return difficulty;
