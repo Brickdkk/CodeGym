@@ -62,7 +62,7 @@ export default function Header() {
           <img
             src={logoCodegym}
             alt="CodeGym"
-            className="h-8 md:h-10 w-auto object-contain cursor-pointer"
+            className="h-10 md:h-14 w-auto object-contain cursor-pointer"
           />
         </Link>
 
@@ -195,7 +195,7 @@ export default function Header() {
                   <img
                     src={logoCodegym}
                     alt="CodeGym"
-                    className="h-8 w-auto object-contain"
+                    className="h-10 w-auto object-contain"
                   />
                 </SheetTitle>
                 <SheetDescription>
