@@ -20,6 +20,10 @@ import { corsOptions } from "./security/corsConfig.js";
 
 const app = express();
 
+// Trust Vercel's reverse proxy so Express sees the original HTTPS connection.
+// Without this, cookie.secure=true is silently ignored (no Set-Cookie header).
+app.set("trust proxy", 1);
+
 // ---- Middleware setup (synchronous) ----
 
 // Security middleware - applied first
@@ -150,7 +154,7 @@ export async function initializeApp() {
 
   app.use(session({
     store: new PgStore({
-      conString: process.env.DATABASE_URL,
+      pool: pool as any,
       createTableIfMissing: false,
       tableName: 'session',
     }),
