@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Lock, Eye, EyeOff, Github, UserPlus, User } from 'lucide-react';
+import { queryClient } from '@/lib/queryClient';
 
 export function RegisterForm() {
   const [formData, setFormData] = useState({
@@ -76,6 +77,7 @@ export function RegisterForm() {
           email: formData.email,
           password: formData.password,
         }),
+        credentials: 'include',
       });
 
       const data = await response.json();
@@ -93,6 +95,8 @@ export function RegisterForm() {
         return;
       }
 
+      // Invalidate auth cache so useAuth picks up the new session immediately
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       setLocation('/');
     } catch (err: any) {
       setGeneralError(err.message || 'Error en el servidor');

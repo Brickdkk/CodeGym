@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Lock, Eye, EyeOff, Github, LogIn } from 'lucide-react';
+import { queryClient } from '@/lib/queryClient';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -25,6 +26,7 @@ export function LoginForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include',
       });
 
       const data = await response.json();
@@ -33,6 +35,8 @@ export function LoginForm() {
         throw new Error(data.message || 'Error en el inicio de sesion');
       }
 
+      // Invalidate auth cache so useAuth picks up the new session immediately
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       setLocation('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error en el inicio de sesion');
