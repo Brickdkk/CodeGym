@@ -643,6 +643,91 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // PATCH username
+  app.patch('/api/profile/username', isAuthenticated, [
+    body('username')
+      .trim()
+      .isLength({ min: 3, max: 30 }).withMessage('El nombre de usuario debe tener entre 3 y 30 caracteres')
+      .matches(/^[a-zA-Z0-9_-]+$/).withMessage('Solo se permiten letras, números, guiones y guiones bajos'),
+  ], async (req: any, res: any) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const userId = (req.user as any)?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
+      const { username } = req.body;
+
+      // Check uniqueness
+      const existing = await db.query.users.findFirst({
+        where: eq(users.username, username),
+      });
+      if (existing && existing.id !== userId) {
+        return res.status(409).json({ message: 'Ese nombre de usuario ya está en uso' });
+      }
+
+      const [updated] = await db
+        .update(users)
+        .set({ username, updatedAt: new Date() } as any)
+        .where(eq(users.id, userId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating username:', error);
+      res.status(500).json({ error: 'Failed to update username' });
+    }
+  });
+
+  // PATCH password
+  app.patch('/api/profile/password', isAuthenticated, [
+    body('currentPassword').notEmpty().withMessage('La contraseña actual es obligatoria'),
+    body('newPassword').isLength({ min: 8 }).withMessage('La nueva contraseña debe tener al menos 8 caracteres'),
+  ], async (req: any, res: any) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const userId = (req.user as any)?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+
+      // Fetch user to verify current password
+      const user = await storage.getUser(userId);
+      if (!user || !user.password) {
+        return res.status(400).json({ message: 'Esta cuenta no usa contraseña local (OAuth)' });
+      }
+
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'La contraseña actual es incorrecta' });
+      }
+
+      const salt = await bcrypt.genSalt(12);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+      await db
+        .update(users)
+        .set({ password: hashedPassword, updatedAt: new Date() } as any)
+        .where(eq(users.id, userId));
+
+      res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (error) {
+      console.error('Error updating password:', error);
+      res.status(500).json({ error: 'Failed to update password' });
+    }
+  });
+
   // PATCH route for profile updates
   app.patch('/api/profile', isAuthenticated, async (req, res) => {
     try {

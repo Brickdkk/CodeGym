@@ -29,8 +29,8 @@ export default function Header() {
 
   const navigation = [
     { name: 'Ejercicios', href: '/' },
+    { name: 'Perfil', href: '/profile' },
     { name: 'Rankings', href: '/rankings' },
-    { name: 'Mi Perfil', href: '/profile' },
   ];
 
   const getUserDisplayName = () => {
@@ -50,7 +50,6 @@ export default function Header() {
       .toUpperCase();
   };
 
-  // Actualizar para usar las nuevas rutas de autenticación
   const handleLogout = () => {
     window.location.href = "/api/auth/logout";
   };
@@ -79,91 +78,103 @@ export default function Header() {
             </Button>
           </Link>
 
-          {isAuthenticated && (
-            <Link href="/profile">
-              <Button 
-                variant={location === '/profile' ? 'default' : 'ghost'} 
-                size="sm"
-                className="font-medium"
-              >
-                Mi Perfil
-              </Button>
-            </Link>
-          )}
+          <Link href="/profile">
+            <Button 
+              variant={location === '/profile' ? 'default' : 'ghost'} 
+              size="sm"
+              className="font-medium"
+            >
+              Perfil
+            </Button>
+          </Link>
+
+          <Link href="/rankings">
+            <Button 
+              variant={location === '/rankings' ? 'default' : 'ghost'} 
+              size="sm"
+              className="font-medium"
+            >
+              Rankings
+            </Button>
+          </Link>
         </nav>
 
         {/* User Actions */}
         <div className="flex items-center space-x-4">
           {isAuthenticated ? (
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
+              {/* Avatar clickable — redirects to profile */}
               <Link href="/profile">
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10">
+                <button className="relative h-10 w-10 rounded-full ring-2 ring-transparent hover:ring-cyan-500/50 transition-all duration-200 focus:outline-none focus:ring-cyan-500/50">
+                  <Avatar className="h-10 w-10 border border-white/10">
                     {(user as any)?.profileImageUrl ? (
                       <AvatarImage 
                         src={(user as any).profileImageUrl} 
                         alt={getUserDisplayName()}
                       />
                     ) : null}
-                    <AvatarFallback>
-                      {getUserInitials()}
+                    <AvatarFallback className="bg-cyan-500/20 text-cyan-400">
+                      <User className="h-5 w-5" />
                     </AvatarFallback>
                   </Avatar>
-                </Button>
+                </button>
               </Link>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="hidden sm:flex">
+                    <span className="text-sm font-medium mr-1 max-w-[120px] truncate">
+                      {getUserDisplayName()}
+                    </span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {getUserDisplayName()}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {(user as any)?.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <Link href="/profile">
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Mi Perfil</span>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {getUserDisplayName()}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {(user as any)?.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <Link href="/profile">
+                    <DropdownMenuItem>
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Mi Perfil</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/rankings">
+                    <DropdownMenuItem>
+                      <Trophy className="mr-2 h-4 w-4" />
+                      <span>Rankings</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/profile">
+                    <DropdownMenuItem>
+                      <Target className="mr-2 h-4 w-4" />
+                      <span>Mi Progreso</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Cerrar Sesion</span>
                   </DropdownMenuItem>
-                </Link>
-                <Link href="/profile">
-                  <DropdownMenuItem>
-                    <Trophy className="mr-2 h-4 w-4" />
-                    <span>Mis Rankings</span>
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/profile">
-                  <DropdownMenuItem>
-                    <Target className="mr-2 h-4 w-4" />
-                    <span>Mi Progreso</span>
-                  </DropdownMenuItem>
-                </Link>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Cerrar Sesión</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ) : (
             <>
               <Link href="/login">
                 <Button variant="ghost" className="hidden sm:inline-flex">
-                  Iniciar Sesión
+                  Iniciar Sesion
                 </Button>
               </Link>
               <Link href="/register">
-                <Button>
+                <Button className="bg-cyan-500 hover:bg-cyan-600 text-black font-semibold">
                   Registrarse
                 </Button>
               </Link>
@@ -175,7 +186,7 @@ export default function Header() {
             <SheetTrigger asChild>
               <Button variant="ghost" size="sm" className="md:hidden">
                 <Menu className="h-5 w-5" />
-                <span className="sr-only">Abrir menú</span>
+                <span className="sr-only">Abrir menu</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
@@ -188,7 +199,7 @@ export default function Header() {
                   />
                 </SheetTitle>
                 <SheetDescription>
-                  Plataforma de ejercicios de programación
+                  Plataforma de ejercicios de programacion
                 </SheetDescription>
               </SheetHeader>
               <div className="mt-6 space-y-4">
@@ -211,12 +222,12 @@ export default function Header() {
                         className="w-full justify-start"
                         onClick={() => setMobileOpen(false)}
                       >
-                        Iniciar Sesión
+                        Iniciar Sesion
                       </Button>
                     </Link>
                     <Link href="/register">
                       <Button 
-                        className="w-full"
+                        className="w-full bg-cyan-500 hover:bg-cyan-600 text-black font-semibold"
                         onClick={() => setMobileOpen(false)}
                       >
                         Registrarse
