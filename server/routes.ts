@@ -4,7 +4,7 @@ import { insertCommentSchema, exercises, userProgress, submissions, userStreaks,
 import { z } from "zod";
 import { insertSubmissionSchema, insertUserProgressSchema } from "../shared/schema.js";
 import { db } from "./db.js";
-import { eq, sql, count } from "drizzle-orm";
+import { eq, sql, count, and } from "drizzle-orm";
 import passport from "passport";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
@@ -390,6 +390,41 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // Per-language progress for profile progress bars
+  app.get('/api/user/progress/by-language', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id;
+
+      const rows = await db
+        .select({
+          languageId: languages.id,
+          languageName: languages.name,
+          languageSlug: languages.slug,
+          languageColor: languages.color,
+          totalExercises: sql<number>`count(distinct ${exercises.id})::int`,
+          solvedExercises: sql<number>`count(distinct ${exercises.id}) filter (
+            where ${userProgress.solved} = true
+          )::int`,
+        })
+        .from(languages)
+        .innerJoin(exercises, eq(exercises.languageId, languages.id))
+        .leftJoin(
+          userProgress,
+          and(
+            eq(userProgress.exerciseId, exercises.id),
+            eq(userProgress.userId, userId),
+          ),
+        )
+        .groupBy(languages.id, languages.name, languages.slug, languages.color)
+        .orderBy(languages.name);
+
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching progress by language:", error);
+      res.status(500).json({ message: "Failed to fetch progress by language" });
+    }
+  });
+
   // Stats routes
   app.get('/api/stats', async (req, res) => {
     try {
@@ -517,30 +552,41 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  // Global rankings endpoint
+  // Global rankings endpoint — shows all users ranked by total points (exercises solved * 10)
   app.get("/api/rankings/global", async (req, res) => {
     try {
-      // Return only real user data - no fake rankings
       const currentUserId = (req.user as any)?.id;
-      const rankings = [];
-      
-      // If user is authenticated, show only their real ranking
-      if (currentUserId) {
-        const userStats = await storage.getUserStats(currentUserId);
-        if (userStats) {
-          rankings.push({
-            rank: 1,
-            userId: currentUserId,
-            firstName: "Tu",
-            lastName: "Progreso",
-            points: userStats.totalPoints || 0,
-            exercisesSolved: userStats.exercisesSolved || 0,
-            averageTime: userStats.averageTime || 0,
-            isCurrentUser: true
-          });
-        }
-      }
-      
+
+      const rows = await db
+        .select({
+          userId: userProgress.userId,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          exercisesSolved: sql<number>`count(*) filter (where ${userProgress.solved} = true)`,
+          averageTime: sql<number>`coalesce(avg(${userProgress.bestTime}) filter (where ${userProgress.solved} = true and ${userProgress.bestTime} is not null), 0)`,
+        })
+        .from(userProgress)
+        .innerJoin(users, eq(userProgress.userId, users.id))
+        .groupBy(userProgress.userId, users.firstName, users.lastName, users.profileImageUrl)
+        .orderBy(
+          sql`count(*) filter (where ${userProgress.solved} = true) DESC`,
+          sql`coalesce(avg(${userProgress.bestTime}) filter (where ${userProgress.solved} = true and ${userProgress.bestTime} is not null), 999999) ASC`
+        )
+        .limit(50);
+
+      const rankings = rows.map((row, index) => ({
+        rank: index + 1,
+        userId: row.userId,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        profileImageUrl: row.profileImageUrl,
+        points: Number(row.exercisesSolved) * 10,
+        exercisesSolved: Number(row.exercisesSolved),
+        averageTime: Math.round(Number(row.averageTime)),
+        isCurrentUser: row.userId === currentUserId,
+      }));
+
       res.json(rankings);
     } catch (error) {
       console.error("Error fetching rankings:", error);

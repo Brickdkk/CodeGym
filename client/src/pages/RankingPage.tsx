@@ -13,11 +13,13 @@ import { Crown, Medal, Trophy, Clock, User, Search, Filter } from "lucide-react"
 interface ExerciseRanking {
   rank: number;
   userId: string;
-  firstName: string;
-  lastName: string;
-  completionTime: number; // in seconds
+  user: {
+    firstName: string;
+    lastName: string;
+    profileImageUrl?: string;
+  };
+  executionTime: number; // in milliseconds
   submittedAt: string;
-  isCurrentUser: boolean;
 }
 
 interface Exercise {
@@ -57,10 +59,9 @@ export default function RankingPage() {
     exercise.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const formatTime = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(2)}s`;
   };
 
   const getRankIcon = (rank: number) => {
@@ -92,11 +93,11 @@ export default function RankingPage() {
     }
   };
 
-  const getUserDisplayName = (firstName: string, lastName: string) => {
+  const getUserDisplayName = (firstName?: string, lastName?: string) => {
     return `${firstName || ''} ${lastName || ''}`.trim() || 'Usuario Anónimo';
   };
 
-  const getUserInitials = (firstName: string, lastName: string) => {
+  const getUserInitials = (firstName?: string, lastName?: string) => {
     const name = getUserDisplayName(firstName, lastName);
     return name.split(' ')
       .map(word => word[0])
@@ -104,14 +105,6 @@ export default function RankingPage() {
       .substring(0, 2)
       .toUpperCase();
   };
-
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
 
 
 
@@ -278,11 +271,7 @@ export default function RankingPage() {
                 {rankings.map((entry: ExerciseRanking) => (
                   <div 
                     key={`${entry.userId}-${entry.submittedAt}`}
-                    className={`flex items-center justify-between p-4 rounded-lg border ${
-                      entry.isCurrentUser 
-                        ? 'bg-primary/5 border-primary/20' 
-                        : 'bg-card border-border'
-                    }`}
+                    className="flex items-center justify-between p-4 rounded-lg border bg-card border-border"
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex items-center justify-center w-10 h-10">
@@ -290,22 +279,18 @@ export default function RankingPage() {
                       </div>
                       
                       <Avatar className="h-10 w-10">
+                        {entry.user?.profileImageUrl && (
+                          <AvatarImage src={entry.user.profileImageUrl} />
+                        )}
                         <AvatarFallback>
-                          {getUserInitials(entry.firstName, entry.lastName)}
+                          {getUserInitials(entry.user?.firstName, entry.user?.lastName)}
                         </AvatarFallback>
                       </Avatar>
                       
                       <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold">
-                            {entry.isCurrentUser ? 'Tú' : getUserDisplayName(entry.firstName, entry.lastName)}
-                          </p>
-                          {entry.isCurrentUser && (
-                            <Badge variant="outline" className="text-xs">
-                              Tú
-                            </Badge>
-                          )}
-                        </div>
+                        <p className="font-semibold">
+                          {getUserDisplayName(entry.user?.firstName, entry.user?.lastName)}
+                        </p>
                         <p className="text-sm text-muted-foreground">
                           {new Date(entry.submittedAt).toLocaleDateString('es-ES', {
                             day: 'numeric',
@@ -322,7 +307,7 @@ export default function RankingPage() {
                       </Badge>
                       <div className="flex items-center gap-2 text-lg font-mono">
                         <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-bold">{formatTime(entry.completionTime)}</span>
+                        <span className="font-bold">{formatTime(Number(entry.executionTime))}</span>
                       </div>
                     </div>
                   </div>

@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { User, Save, Camera, Trophy, Target, Calendar } from "lucide-react";
+import { User, Save, Camera, Trophy, Target, Calendar, BookOpen } from "lucide-react";
 import { getRelativeTime } from "@/lib/timeUtils";
 
 interface UserProfile {
@@ -26,11 +26,22 @@ interface UserProfile {
 
 interface UserStats {
   exercisesSolved: number;
+  solvedExercises: number;
   totalPoints: number;
   averageTime: number;
   currentStreak: number;
   longestStreak: number;
   favoriteLanguage: string;
+  totalExercises: number;
+}
+
+interface LanguageProgress {
+  languageId: number;
+  languageName: string;
+  languageSlug: string;
+  languageColor: string;
+  totalExercises: number;
+  solvedExercises: number;
 }
 
 export default function ProfilePage() {
@@ -58,6 +69,14 @@ export default function ProfilePage() {
     queryKey: ["/api/user/stats"],
     enabled: isAuthenticated,
     staleTime: 0, // Always refetch — stats change on every submission
+    retry: false,
+  });
+
+  // Fetch per-language progress for progress bars
+  const { data: languageProgress = [] } = useQuery<LanguageProgress[]>({
+    queryKey: ["/api/user/progress/by-language"],
+    enabled: isAuthenticated,
+    staleTime: 0,
     retry: false,
   });
 
@@ -332,7 +351,7 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-500">
-                        {userStats.exercisesSolved || 0}
+                        {userStats.solvedExercises || userStats.exercisesSolved || 0}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Ejercicios resueltos
@@ -340,7 +359,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-500">
-                        {userStats.totalPoints || 0}
+                        {(userStats.solvedExercises || userStats.exercisesSolved || 0) * 10}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Puntos totales
@@ -374,6 +393,47 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Per-language progress bars */}
+            {languageProgress.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Progreso por Lenguaje
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  {languageProgress.map((lp) => {
+                    const pct = lp.totalExercises > 0
+                      ? Math.round((lp.solvedExercises / lp.totalExercises) * 100)
+                      : 0;
+                    return (
+                      <div key={lp.languageSlug}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-sm font-medium">{lp.languageName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {lp.solvedExercises}/{lp.totalExercises}
+                          </span>
+                        </div>
+                        <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: lp.languageColor || 'hsl(195,100%,50%)',
+                            }}
+                          />
+                        </div>
+                        <div className="text-right mt-1">
+                          <span className="text-xs text-muted-foreground">{pct}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
             )}
