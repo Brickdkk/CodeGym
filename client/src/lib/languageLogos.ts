@@ -6,11 +6,11 @@
  * with a built-in fallback for unknown or missing slugs.
  */
 
-import pythonLogo from '@/assets/logos/python.png';
-import javascriptLogo from '@/assets/logos/javascript.png';
-import cppLogo from '@/assets/logos/cpp.png';
-import cLogo from '@/assets/logos/c.png';
-import htmlCssLogo from '@/assets/logos/html-css.png';
+import pythonLogo from '@/assets/logos/python.svg';
+import javascriptLogo from '@/assets/logos/javascript.svg';
+import cppLogo from '@/assets/logos/cpp.svg';
+import cLogo from '@/assets/logos/c.svg';
+import htmlCssLogo from '@/assets/logos/html-css.svg';
 
 /** Canonical slug → logo mapping. */
 const logoMap: Record<string, string> = {
