@@ -50,6 +50,12 @@ export function RegisterForm() {
       newErrors.password = 'La contrasena es obligatoria';
     } else if (formData.password.length < 8) {
       newErrors.password = 'La contrasena debe tener al menos 8 caracteres';
+    } else if (!/[A-Z]/.test(formData.password)) {
+      newErrors.password = 'La contrasena debe incluir al menos una letra mayuscula';
+    } else if (!/[a-z]/.test(formData.password)) {
+      newErrors.password = 'La contrasena debe incluir al menos una letra minuscula';
+    } else if (!/[0-9]/.test(formData.password)) {
+      newErrors.password = 'La contrasena debe incluir al menos un numero';
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -68,9 +74,14 @@ export function RegisterForm() {
     setLoading(true);
 
     try {
+      const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+      const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : '';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -142,6 +153,7 @@ export function RegisterForm() {
                     value={formData.firstName}
                     onChange={handleChange}
                     required
+                    autoComplete="given-name"
                     className={`pl-10 ${fieldClass}`}
                   />
                 </div>
@@ -155,6 +167,7 @@ export function RegisterForm() {
                   value={formData.lastName}
                   onChange={handleChange}
                   required
+                  autoComplete="family-name"
                   className={fieldClass}
                 />
                 {errors.lastName && <p className="text-xs text-red-400">{errors.lastName}</p>}
@@ -173,6 +186,7 @@ export function RegisterForm() {
                   value={formData.email}
                   onChange={handleChange}
                   required
+                  autoComplete="email"
                   className={`pl-10 ${fieldClass}`}
                 />
               </div>
@@ -191,6 +205,8 @@ export function RegisterForm() {
                   value={formData.password}
                   onChange={handleChange}
                   required
+                  autoComplete="new-password"
+                  minLength={8}
                   className={`pl-10 pr-10 ${fieldClass}`}
                 />
                 <button
@@ -216,6 +232,8 @@ export function RegisterForm() {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   required
+                  autoComplete="new-password"
+                  minLength={8}
                   className={`pl-10 ${fieldClass}`}
                 />
               </div>

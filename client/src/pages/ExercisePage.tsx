@@ -355,7 +355,7 @@ export default function ExercisePage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     Estas navegando como invitado. Tu progreso no se guardara.
                   </p>
-                  <Button size="sm" onClick={() => window.location.href = "/api/login"}>
+                  <Button size="sm" onClick={() => window.location.href = "/login"}>
                     Iniciar Sesion
                   </Button>
                 </CardContent>

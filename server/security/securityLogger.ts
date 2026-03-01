@@ -12,7 +12,7 @@ interface SecurityEvent {
 
 class SecurityLogger {
   private events: SecurityEvent[] = [];
-  private readonly MAX_EVENTS = 10000;
+  private readonly MAX_EVENTS = 500;
 
   /**
    * Log security events with automatic severity assessment

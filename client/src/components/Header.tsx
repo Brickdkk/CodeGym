@@ -50,8 +50,19 @@ export default function Header() {
       .toUpperCase();
   };
 
-  const handleLogout = () => {
-    window.location.href = "/api/auth/logout";
+  const handleLogout = async () => {
+    try {
+      const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+      const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : '';
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+      });
+    } catch (_) {
+      // Even if the request fails, redirect to clear client state
+    }
+    window.location.href = "/";
   };
 
   return (

@@ -49,8 +49,8 @@ app.use(securityHeaders);
 app.use(apiRateLimit(1000, 15 * 60 * 1000)); // 1000 requests per 15 minutes
 app.use(compression());
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // ---- Async initialization ----
 
@@ -158,7 +158,11 @@ export async function initializeApp() {
       createTableIfMissing: false,
       tableName: 'session',
     }),
-    secret: process.env.SESSION_SECRET || 'a-very-secret-key',
+    secret: (() => {
+      const s = process.env.SESSION_SECRET;
+      if (!s) throw new Error('FATAL: SESSION_SECRET env var is required');
+      return s;
+    })(),
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -268,7 +272,7 @@ export async function initializeApp() {
     console.error('Application error:', JSON.stringify(errorLog));
 
     res.status(status).json({ 
-      message,
+      message: process.env.NODE_ENV === 'development' ? message : 'Internal Server Error',
       ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {})
     });
   });

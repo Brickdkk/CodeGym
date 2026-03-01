@@ -31,10 +31,9 @@ function renderInIframe(html: string): Promise<string> {
     iframe.style.top = '-9999px';
     iframe.style.width = '1024px';
     iframe.style.height = '768px';
-    iframe.setAttribute('sandbox', 'allow-same-origin');
-
-    // Unique message channel for this render
-    const channel = new MessageChannel();
+    // Sandbox WITHOUT allow-same-origin — prevents script execution and
+    // blocks access to parent page. Using srcdoc instead of doc.write().
+    iframe.setAttribute('sandbox', '');
 
     const timeoutId = setTimeout(() => {
       cleanup();
@@ -50,16 +49,11 @@ function renderInIframe(html: string): Promise<string> {
 
     iframe.onload = () => {
       try {
-        const doc = iframe.contentDocument;
-        if (!doc) {
-          cleanup();
-          resolve('');
-          return;
-        }
-
-        // Extract visible text content — this is what test cases compare against.
-        // For more granular assertions (element existence, CSS properties, etc.),
-        // the test runner can query the iframe DOM directly.
+        // With sandbox="" (no allow-same-origin), we cannot access
+        // contentDocument directly. Instead, use a DOMParser to extract
+        // text from the HTML string — this is safe and doesn't execute scripts.
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
         const text = doc.body?.innerText || doc.body?.textContent || '';
         cleanup();
         resolve(text.trim());
@@ -74,17 +68,8 @@ function renderInIframe(html: string): Promise<string> {
       reject(new Error('Failed to load iframe'));
     };
 
+    // Use srcdoc attribute instead of doc.write() — safer, no DOM access needed
+    iframe.srcdoc = html;
     document.body.appendChild(iframe);
-
-    // Write HTML content into the iframe
-    const doc = iframe.contentDocument;
-    if (doc) {
-      doc.open();
-      doc.write(html);
-      doc.close();
-    } else {
-      cleanup();
-      reject(new Error('Cannot access iframe document'));
-    }
   });
 }

@@ -8,15 +8,23 @@ import { eq, sql, count, and } from "drizzle-orm";
 import passport from "passport";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 // Security imports
 import { loginRateLimit } from "./security/rateLimiting.js";
-import { validateExerciseSubmission, validateComment, handleValidationErrors } from "./security/validation.js";
+import { validateExerciseSubmission, validateComment, handleValidationErrors, sanitizeHtml } from "./security/validation.js";
 import { securityLogger } from "./security/securityLogger.js";
 import { achievementService } from "./achievementService.js";
 import { provideCSRFToken, verifyCSRFToken } from "./security/csrf.js";
 
 import type { Request, Response, NextFunction } from "express";
+
+// Helper: strip password and other sensitive fields from user objects
+function stripSensitiveFields(user: any): any {
+  if (!user) return user;
+  const { password, ...safe } = user;
+  return safe;
+}
 
 // Middleware to check if a user is authenticated
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
@@ -26,13 +34,31 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   res.status(401).json({ message: "No autenticado" });
 }
 
+// Middleware to check if user is admin
+function isAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = req.user as any;
+  if (user && user.isAdmin === true) {
+    return next();
+  }
+  res.status(403).json({ error: 'Access denied' });
+}
+
+// Validate slug parameter (alphanumeric + hyphens only)
+function isValidSlug(slug: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(slug);
+}
+
 export async function registerRoutes(app: Express): Promise<void> {
+  // Apply CSRF cookie to all responses
+  app.use(provideCSRFToken);
+
+  // Apply CSRF verification to all mutating API routes
+  app.use('/api', verifyCSRFToken);
+
   // Auth routes
   app.get('/api/auth/user', async (req, res) => {
     if (req.isAuthenticated()) {
       try {
-        let userId;
-
         // Unified user object from Passport.js
         const user = req.user as any;
         if (user) {
@@ -40,9 +66,9 @@ export async function registerRoutes(app: Express): Promise<void> {
           const fullUser = await storage.getUser(user.id);
           if (fullUser) {
             return res.json({
-              ...fullUser,
-              authMethod: user.googleId ? 'google' :
-                         user.githubId ? 'github' : 'local'
+              ...stripSensitiveFields(fullUser),
+              authMethod: fullUser.googleId ? 'google' :
+                         fullUser.githubId ? 'github' : 'local'
             });
           }
         }
@@ -59,10 +85,14 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Nuevas rutas de autenticación
   
-  // Registro con email y contraseña
-  app.post('/api/auth/register', [
+  // Registro con email y contraseña — rate limited
+  app.post('/api/auth/register', loginRateLimit(), [
     body('email').isEmail().withMessage('Ingrese un email válido'),
-    body('password').isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres'),
+    body('password')
+      .isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres')
+      .matches(/[a-z]/).withMessage('La contraseña debe contener al menos una letra minúscula')
+      .matches(/[A-Z]/).withMessage('La contraseña debe contener al menos una letra mayúscula')
+      .matches(/[0-9]/).withMessage('La contraseña debe contener al menos un número'),
     body('firstName').trim().notEmpty().withMessage('El nombre es obligatorio'),
     body('lastName').trim().notEmpty().withMessage('El apellido es obligatorio'),
   ], async (req: any, res: any) => {
@@ -81,15 +111,16 @@ export async function registerRoutes(app: Express): Promise<void> {
       });
 
       if (existingUser) {
-        return res.status(400).json({ message: 'Ya existe un usuario con este email' });
+        // Generic message to prevent user enumeration
+        return res.status(400).json({ message: 'No se pudo completar el registro. Verifica tus datos.' });
       }
 
       // Hashear contraseña
       const salt = await bcrypt.genSalt(12);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      // Crear nuevo usuario
-      const userId = `local_${Date.now().toString()}_${Math.random().toString(36).substring(2, 15)}`;
+      // Crear nuevo usuario with crypto.randomUUID
+      const userId = crypto.randomUUID();
       
       await storage.upsertUser({
         id: userId,
@@ -100,13 +131,20 @@ export async function registerRoutes(app: Express): Promise<void> {
         password: hashedPassword,
       } as any);
 
-      // Iniciar sesión automáticamente
-      req.login({ id: userId, email, firstName, lastName, profileImageUrl }, (err: any) => {
-        if (err) {
-          console.error("Error de inicio de sesión tras registro:", err);
-          return res.status(500).json({ message: 'Error en el inicio de sesión automático' });
+      // Session regeneration before login to prevent session fixation
+      req.session.regenerate((regErr: any) => {
+        if (regErr) {
+          console.error("Session regeneration error:", regErr);
+          return res.status(500).json({ message: 'Error en el servidor' });
         }
-        return res.status(201).json({ message: 'Usuario registrado correctamente' });
+        // Iniciar sesión automáticamente
+        req.login({ id: userId, email, firstName, lastName, profileImageUrl }, (err: any) => {
+          if (err) {
+            console.error("Error de inicio de sesión tras registro:", err);
+            return res.status(500).json({ message: 'Error en el inicio de sesión automático' });
+          }
+          return res.status(201).json({ message: 'Usuario registrado correctamente' });
+        });
       });
     } catch (error) {
       console.error("Error en registro:", error);
@@ -133,19 +171,25 @@ export async function registerRoutes(app: Express): Promise<void> {
       if (!user) {
         return res.status(401).json({ message: info.message || 'Autenticación fallida' });
       }
-      req.login(user, (err: any) => {
-        if (err) {
-          return next(err);
+      // Session regeneration before login to prevent session fixation
+      req.session.regenerate((regErr: any) => {
+        if (regErr) {
+          return next(regErr);
         }
-        return res.json({
-          message: 'Inicio de sesión exitoso',
-          user: {
-            id: user.id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            profileImageUrl: user.profileImageUrl
+        req.login(user, (err: any) => {
+          if (err) {
+            return next(err);
           }
+          return res.json({
+            message: 'Inicio de sesión exitoso',
+            user: stripSensitiveFields({
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              profileImageUrl: user.profileImageUrl
+            })
+          });
         });
       });
     })(req, res, next);
@@ -175,10 +219,31 @@ export async function registerRoutes(app: Express): Promise<void> {
     })
   );
 
-  // Cierre de sesión unificado
+  // Cierre de sesión — POST to prevent CSRF via GET
+  app.post('/api/auth/logout', (req, res) => {
+    req.logout(() => {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+        }
+        res.clearCookie('connect.sid');
+        res.clearCookie('csrf_token');
+        res.json({ message: 'Sesión cerrada' });
+      });
+    });
+  });
+
+  // Keep GET logout as redirect for backwards compatibility (OAuth flows etc.)
   app.get('/api/auth/logout', (req, res) => {
     req.logout(() => {
-      res.redirect('/');
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+        }
+        res.clearCookie('connect.sid');
+        res.clearCookie('csrf_token');
+        res.redirect('/');
+      });
     });
   });
 
@@ -195,7 +260,11 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   app.get('/api/languages/:slug', async (req, res) => {
     try {
-      const language = await storage.getLanguageBySlug(req.params.slug);
+      const { slug } = req.params;
+      if (!isValidSlug(slug)) {
+        return res.status(400).json({ message: "Invalid language slug" });
+      }
+      const language = await storage.getLanguageBySlug(slug);
       if (!language) {
         return res.status(404).json({ message: "Language not found" });
       }
@@ -209,8 +278,12 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Exercises by language
   app.get('/api/languages/:slug/exercises', async (req, res) => {
     try {
+      const { slug } = req.params;
+      if (!isValidSlug(slug)) {
+        return res.status(400).json({ message: "Invalid language slug" });
+      }
       const { difficulty } = req.query;
-      const exercises = await storage.getExercisesByLanguage(req.params.slug, difficulty as string);
+      const exercises = await storage.getExercisesByLanguage(slug, difficulty as string);
       res.json(exercises);
     } catch (error) {
       console.error("Error fetching exercises:", error);
@@ -237,7 +310,11 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Exercise by slug (single handler — no duplicates)
   app.get('/api/exercises/:slug', async (req, res) => {
     try {
-      const exercise = await storage.getExerciseBySlug(req.params.slug);
+      const { slug } = req.params;
+      if (!isValidSlug(slug)) {
+        return res.status(400).json({ message: "Invalid exercise slug" });
+      }
+      const exercise = await storage.getExerciseBySlug(slug);
       if (!exercise) {
         return res.status(404).json({ message: "Exercise not found" });
       }
@@ -249,10 +326,15 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Code execution stub — actual execution happens client-side via WASM.
-  // This endpoint only records the result sent from the client.
+  // This endpoint only returns test cases for client-side execution.
   app.post('/api/exercises/:slug/execute', async (req, res) => {
     try {
-      const exercise = await storage.getExerciseBySlug(req.params.slug);
+      const { slug } = req.params;
+      if (!isValidSlug(slug)) {
+        return res.status(400).json({ message: "Invalid exercise slug" });
+      }
+
+      const exercise = await storage.getExerciseBySlug(slug);
       
       if (!exercise) {
         return res.status(404).json({ message: "Exercise not found" });
@@ -292,25 +374,45 @@ export async function registerRoutes(app: Express): Promise<void> {
         exerciseTitle: exercise.title,
         message: 'Execute code client-side via WASM'
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching exercise data:", error);
-      res.status(500).json({ message: "Failed to fetch exercise data", error: error?.message });
+      res.status(500).json({ message: "Failed to fetch exercise data" });
     }
   });
 
   // Submissions routes (authenticated users only)
   // Client executes code via WASM and sends results for persistence
+  // Submission body schema validation
+  const submitBodySchema = z.object({
+    code: z.string().min(1).max(50000),
+    status: z.string().optional(),
+    executionTime: z.number().min(0).max(60000).optional(),
+    memoryUsed: z.number().min(0).optional(),
+    testResults: z.array(z.any()).optional(),
+    allTestsPassed: z.boolean().optional(),
+  });
+
   app.post('/api/exercises/:slug/submit', isAuthenticated, async (req: any, res) => {
     try {
+      const { slug } = req.params;
+      if (!isValidSlug(slug)) {
+        return res.status(400).json({ message: "Invalid exercise slug" });
+      }
+
+      // Validate body
+      const parsed = submitBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid submission data", errors: parsed.error.issues });
+      }
+
       const userId = (req.user as any).id;
-      const exercise = await storage.getExerciseBySlug(req.params.slug);
+      const exercise = await storage.getExerciseBySlug(slug);
       
       if (!exercise) {
         return res.status(404).json({ message: "Exercise not found" });
       }
 
-      // The client sends: code, status, executionTime, memoryUsed, testResults
-      const { code, status, executionTime, memoryUsed, testResults, allTestsPassed } = req.body;
+      const { code, status, executionTime, memoryUsed, testResults, allTestsPassed } = parsed.data;
 
       const submissionData = insertSubmissionSchema.parse({
         userId,
@@ -365,7 +467,11 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Rankings routes
   app.get('/api/exercises/:slug/rankings', async (req, res) => {
     try {
-      const exercise = await storage.getExerciseBySlug(req.params.slug);
+      const { slug } = req.params;
+      if (!isValidSlug(slug)) {
+        return res.status(400).json({ message: "Invalid exercise slug" });
+      }
+      const exercise = await storage.getExerciseBySlug(slug);
       if (!exercise) {
         return res.status(404).json({ message: "Exercise not found" });
       }
@@ -441,7 +547,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     try {
       const exerciseId = parseInt(req.params.id);
       
-      if (isNaN(exerciseId)) {
+      if (isNaN(exerciseId) || exerciseId < 1) {
         return res.status(400).json({ error: 'Invalid exercise ID' });
       }
 
@@ -486,7 +592,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.post('/api/exercises/:exerciseId/comments', isAuthenticated, async (req, res) => {
     try {
       const exerciseId = parseInt(req.params.exerciseId);
-      if (isNaN(exerciseId)) {
+      if (isNaN(exerciseId) || exerciseId < 1) {
         return res.status(400).json({ error: 'Invalid exercise ID' });
       }
 
@@ -495,8 +601,21 @@ export async function registerRoutes(app: Express): Promise<void> {
         return res.status(401).json({ error: 'User not authenticated' });
       }
 
+      // Validate comment length
+      const content = req.body.content;
+      if (!content || typeof content !== 'string' || content.trim().length === 0) {
+        return res.status(400).json({ error: 'Comment content is required' });
+      }
+      if (content.length > 500) {
+        return res.status(400).json({ error: 'Comment must not exceed 500 characters' });
+      }
+
+      // Sanitize HTML to prevent stored XSS
+      const sanitizedContent = sanitizeHtml(content.trim());
+
       const commentData = insertCommentSchema.parse({
         ...req.body,
+        content: sanitizedContent,
         exerciseId,
         userId
       });
@@ -512,8 +631,11 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.delete('/api/comments/:id', isAuthenticated, async (req, res) => {
     try {
       const commentId = parseInt(req.params.id);
+      if (isNaN(commentId) || commentId < 1) {
+        return res.status(400).json({ error: 'Invalid comment ID' });
+      }
+
       const userId = (req.user as any)?.id;
-      
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
       }
@@ -544,8 +666,19 @@ export async function registerRoutes(app: Express): Promise<void> {
       });
 
       const updates = updateSchema.parse(req.body);
+
+      // Check email uniqueness if changing email
+      if (updates.email) {
+        const existing = await db.query.users.findFirst({
+          where: eq(users.email, updates.email),
+        });
+        if (existing && existing.id !== userId) {
+          return res.status(409).json({ error: 'Ese email ya está en uso' });
+        }
+      }
+
       const user = await storage.updateUserProfile(userId, updates as any);
-      res.json(user);
+      res.json(stripSensitiveFields(user));
     } catch (error) {
       console.error('Error updating profile:', error);
       res.status(500).json({ error: 'Failed to update profile' });
@@ -594,8 +727,8 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  // Initialize rankings for all exercises endpoint
-  app.post("/api/rankings/initialize", async (req, res) => {
+  // Initialize rankings for all exercises endpoint — admin only
+  app.post("/api/rankings/initialize", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const exercises = await storage.getAllExercises();
       let initializedCount = 0;
@@ -677,7 +810,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         .where(eq(users.id, userId))
         .returning();
 
-      res.json(updated);
+      res.json(stripSensitiveFields(updated));
     } catch (error) {
       console.error('Error updating username:', error);
       res.status(500).json({ error: 'Failed to update username' });
@@ -687,7 +820,11 @@ export async function registerRoutes(app: Express): Promise<void> {
   // PATCH password
   app.patch('/api/profile/password', isAuthenticated, [
     body('currentPassword').notEmpty().withMessage('La contraseña actual es obligatoria'),
-    body('newPassword').isLength({ min: 8 }).withMessage('La nueva contraseña debe tener al menos 8 caracteres'),
+    body('newPassword')
+      .isLength({ min: 8 }).withMessage('La nueva contraseña debe tener al menos 8 caracteres')
+      .matches(/[a-z]/).withMessage('La contraseña debe contener al menos una letra minúscula')
+      .matches(/[A-Z]/).withMessage('La contraseña debe contener al menos una letra mayúscula')
+      .matches(/[0-9]/).withMessage('La contraseña debe contener al menos un número'),
   ], async (req: any, res: any) => {
     try {
       const errors = validationResult(req);
@@ -702,7 +839,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
       const { currentPassword, newPassword } = req.body;
 
-      // Fetch user to verify current password
+      // Fetch user to verify current password (need password field)
       const user = await storage.getUser(userId);
       if (!user || !user.password) {
         return res.status(400).json({ message: 'Esta cuenta no usa contraseña local (OAuth)' });
@@ -748,9 +885,20 @@ export async function registerRoutes(app: Express): Promise<void> {
       });
 
       const updates = updateSchema.parse(req.body);
+
+      // Check email uniqueness if changing email
+      if (updates.email) {
+        const existing = await db.query.users.findFirst({
+          where: eq(users.email, updates.email),
+        });
+        if (existing && existing.id !== userId) {
+          return res.status(409).json({ error: 'Ese email ya está en uso' });
+        }
+      }
+
       const user = await storage.updateUserProfile(userId, updates as any);
-      res.json(user);
-    } catch (error: any) {
+      res.json(stripSensitiveFields(user));
+    } catch (error) {
       console.error('Error updating profile:', error);
       res.status(500).json({ error: 'Failed to update profile' });
     }
@@ -897,15 +1045,8 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Security monitoring endpoint (admin only)
-  app.get('/api/security/dashboard', isAuthenticated, async (req: any, res) => {
+  app.get('/api/security/dashboard', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      const userId = req.user.id;
-      
-      // Only allow admin access to security dashboard
-      if (userId !== 'admin') {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-
       const securitySummary = securityLogger.getSecuritySummary();
       const recentEvents = securityLogger.getAllEvents(50);
       
@@ -921,14 +1062,8 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Security test endpoint (admin only)
-  app.post('/api/security/run-tests', isAuthenticated, async (req: any, res) => {
+  app.post('/api/security/run-tests', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      const userId = req.user.id;
-      
-      if (userId !== 'admin') {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-
       const { securityTestSuite } = await import('./security/securityTests.js');
       const testResults = await securityTestSuite.runAllTests();
       const report = securityTestSuite.generateSecurityReport(testResults);
@@ -944,8 +1079,8 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  // Security status endpoint
-  app.get('/api/security/status', async (req, res) => {
+  // Security status endpoint — admin only (was public, now protected)
+  app.get('/api/security/status', isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { securityStatus } = await import('./security/securityStatus.js');
       const status = await securityStatus.getSecurityStatus();
@@ -958,13 +1093,8 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Security compliance report endpoint
-  app.get('/api/security/compliance-report', isAuthenticated, async (req: any, res) => {
+  app.get('/api/security/compliance-report', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      const userId = req.user.id;
-        if (userId !== 'admin') {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-
       const { securityStatus } = await import('./security/securityStatus.js');
       const report = await securityStatus.generateComplianceReport();
       

@@ -12,6 +12,14 @@ export type { RunResult, TestCase, LanguageSlug };
 export type { TestResult } from './wasmExecutor';
 
 /**
+ * Read the csrf_token cookie for mutating requests.
+ */
+function getCSRFToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
  * Run code against test cases from the server. Used by the "Ejecutar Codigo"
  * (Run Code) button — no authentication required.
  */
@@ -20,10 +28,17 @@ export async function runCode(
   code: string,
 ): Promise<RunResult> {
   // 1. Fetch test cases + language from the server
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const csrfToken = getCSRFToken();
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
+
   const res = await fetch(`/api/exercises/${slug}/execute`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ code }),
+    credentials: 'include',
   });
 
   if (!res.ok) {
@@ -50,9 +65,15 @@ export async function submitCode(
   const runResult = await runCode(slug, code);
 
   // 2. Send results to server for persistence
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const csrfToken = getCSRFToken();
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
+
   const res = await fetch(`/api/exercises/${slug}/submit`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     credentials: 'include',
     body: JSON.stringify({
       code,

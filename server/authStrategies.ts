@@ -223,7 +223,9 @@ export function initializePassport() {
       if (!user) {
         return done(null, false);
       }
-      done(null, user);
+      // Strip sensitive fields before attaching to req.user
+      const { password: _pw, ...safeUser } = user as any;
+      done(null, safeUser);
     } catch (error) {
       done(error as Error);
     }

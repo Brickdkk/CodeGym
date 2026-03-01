@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Code, Github, Twitter, Linkedin, MessageCircle } from "lucide-react";
+import { Code, Github, Linkedin, MessageCircle } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -85,13 +85,6 @@ export default function Footer() {
             © 2025 CodeGym. Todos los derechos reservados.
           </div>
           <div className="flex space-x-6">
-            <a 
-              href="#" 
-              className="text-muted-foreground hover:text-primary transition-colors" 
-              aria-label="Twitter"
-            >
-              <Twitter className="h-5 w-5" />
-            </a>
             <a 
               href="#" 
               className="text-muted-foreground hover:text-primary transition-colors" 

@@ -166,7 +166,7 @@ const features = [
   {
     icon: TrendingUp,
     title: "Progreso Detallado",
-    desc: "Estadísticas detalladas y feedback personalizado en cada ejercicio.",
+    desc: "Estadísticas detalladas de tu rendimiento: ejercicios resueltos, racha, tiempo promedio y tasa de éxito.",
   },
   {
     icon: Smartphone,
@@ -197,7 +197,11 @@ export default function Home() {
   });
 
   const handleGetStarted = () => {
-    window.location.href = "/api/login";
+    if (isAuthenticated) {
+      window.location.href = "/";
+    } else {
+      window.location.href = "/register";
+    }
   };
 
   return (
@@ -278,7 +282,7 @@ export default function Home() {
               <div className="text-3xl font-bold text-primary mb-1">
                 {statsLoading
                   ? "..."
-                  : stats?.exercisesSolved?.toLocaleString() || "1,213"}
+                  : stats?.exercisesSolved?.toLocaleString() || "0"}
               </div>
               <div className="text-sm text-muted-foreground">
                 Ejercicios Resueltos

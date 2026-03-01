@@ -28,18 +28,14 @@ export function sanitizeHtml(dirty: string): string {
 }
 
 /**
- * Sanitize user input for safe database storage
+ * Sanitize user input — only trim + length-limit.
+ * SQL injection is prevented by parameterized queries (Drizzle ORM).
+ * The old regex-based keyword stripping was broken (removed legitimate words
+ * like "select", "update", "delete" from user text).
  */
 export function sanitizeInput(input: string): string {
   if (typeof input !== 'string') return '';
-  
-  // Remove potential SQL injection patterns
-  return input
-    .replace(/[<>]/g, '') // Remove angle brackets
-    .replace(/['"]/g, '') // Remove quotes that could break SQL
-    .replace(/(\b(ALTER|CREATE|DELETE|DROP|EXEC|EXECUTE|INSERT|SELECT|UNION|UPDATE)\b)/gi, '') // Remove SQL keywords
-    .trim()
-    .substring(0, 1000); // Limit length
+  return input.trim().substring(0, 1000);
 }
 
 /**

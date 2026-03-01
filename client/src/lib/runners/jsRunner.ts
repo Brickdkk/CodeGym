@@ -104,7 +104,7 @@ console.error = function(...args) {
 console.warn = console.error;
 
 try {
-  ${userCode}
+  (new Function(${JSON.stringify(userCode)}))();
 } catch (e) {
   self.postMessage({ type: 'stderr', data: e?.message || String(e) });
 }
